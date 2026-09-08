@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tro-ly-van-ban"
+version = "0.1.0"
+description = "Trợ lý văn bản local có nguồn và duyệt phiên bản"
+requires-python = ">=3.12"
+dependencies = ["fastapi", "uvicorn", "python-multipart", "pydantic>=2", "httpx", "pypdf", "python-docx", "langgraph", "fastmcp"]
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[project.scripts]
+tro-ly-van-ban = "tro_ly_van_ban.web:main"
+tro-ly-mcp = "tro_ly_van_ban.mcp_server:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]

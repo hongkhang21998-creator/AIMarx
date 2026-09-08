@@ -24,4 +24,6 @@
 - Phạm vi nhánh này **chỉ là tương thích hệ điều hành**. Cố ý không đụng thiết kế phê duyệt, không làm mục 2–3 bàn giao (`review()` kiểm bytes `draft_hash`, chính sách backfill hash rỗng) — tách PR sau cho dễ soát khi merge.
 - **Chưa chạm vào laptop Linux**: chưa SSH, chưa restart dịch vụ, chưa giải nén gói Ollama, chưa thử inference. Máy Linux giữ nguyên trạng thái như `CLAUDE_OPUS.md` mô tả.
 - Bản bàn giao ngược cho GPT Astra: `docs/handoffs/GPT_ASTRA.md`.
-- CI matrix xanh cả hai (run `34216101884`): `ubuntu-latest` 13 passed 1 skipped, `windows-latest` 14 passed. Chưa chạy trên chính laptop Linux.
+- CI matrix xanh cả hai (run `34216101884`): `ubuntu-latest` 13 passed 1 skipped, `windows-latest` 14 passed.
+- Đã chạy `pytest` **trên chính laptop Linux** (Python 3.12.14, cây làm việc `1d073cc`): 13 passed, 1 skipped; `pip check` sạch. Đây là điều kiện trước merge mà `GPT_ASTRA.md` mục 6 nêu, nay đã đóng.
+- Ba lỗ hổng toàn vẹn phê duyệt (mục 2–4 `CLAUDE_OPUS.md`) đã được **tái hiện bằng thực nghiệm**, không còn là nghi ngờ trên giấy. Xem PR tiếp theo.

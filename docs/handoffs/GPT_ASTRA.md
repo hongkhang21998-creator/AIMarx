@@ -53,7 +53,7 @@ Trên Windows 11, Python 3.14.6, `requirements.lock` cài sạch, `pip check` kh
 
 ## 6. CHƯA kiểm chứng — đừng tuyên bố thay tôi
 
-- **Chưa chạy test trên chính laptop Linux.** CI đã phủ Linux ở mức `ubuntu-latest` + Python 3.12 (cùng dòng Python với laptop) và pass, nên đây không còn là khoảng trống hoàn toàn. Nhưng CI không có Ollama, không có dữ liệu thật, không có kho `.runtime/` sẵn có, và chạy trên bản phân phối khác. Vẫn nên chạy lại `pytest` trên laptop trước khi merge.
+- ~~Chưa chạy test trên chính laptop Linux.~~ **Đã chạy ngày 08/09/2026** trên laptop, `.venv` Python 3.12.14, cây làm việc tại `1d073cc`: **13 passed, 1 skipped** (skip là test junction, chỉ có trên Windows), `pip check` sạch. Trùng khớp kết quả `ubuntu-latest` của CI. Vẫn lưu ý: lần chạy này **không** có Ollama sống, không có dữ liệu thật, nên nó chỉ chứng minh bộ test xanh trên chính máy đó — không chứng minh suy luận.
 - **Chưa chạm vào laptop Linux**: chưa SSH vào, chưa restart UI ở `:8765`, chưa đụng Ollama ở `:11434`, chưa giải nén gói Ollama đầy đủ. Máy Linux giữ **nguyên trạng** như `CLAUDE_OPUS.md` mô tả, kể cả việc tiến trình UI đang chạy code cũ hơn working tree.
 - **Chưa thử inference thật** trên bất kỳ máy nào. Ollama chưa cài trên Windows.
 - Trên Windows mới chỉ `curl` trang chủ, **chưa thử luồng đầy đủ** nhập → sửa → duyệt → tải DOCX bằng trình duyệt.

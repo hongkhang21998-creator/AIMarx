@@ -27,3 +27,12 @@
 - CI matrix xanh cả hai (run `34216101884`): `ubuntu-latest` 13 passed 1 skipped, `windows-latest` 14 passed.
 - Đã chạy `pytest` **trên chính laptop Linux** (Python 3.12.14, cây làm việc `1d073cc`): 13 passed, 1 skipped; `pip check` sạch. Đây là điều kiện trước merge mà `GPT_ASTRA.md` mục 6 nêu, nay đã đóng.
 - Ba lỗ hổng toàn vẹn phê duyệt (mục 2–4 `CLAUDE_OPUS.md`) đã được **tái hiện bằng thực nghiệm**, không còn là nghi ngờ trên giấy. Xem PR tiếp theo.
+
+## 2026-09-08 — claude/approval-integrity — toàn vẹn phê duyệt
+
+- Nhánh: `claude/approval-integrity`, base `b0ea96c` trên `claude/cross-platform`. **PR xếp chồng** trên PR #3; #3 phải merge trước.
+- Đóng mục 2–4 của `docs/handoffs/CLAUDE_OPUS.md`. Cả ba đã được **tái hiện bằng thực nghiệm trước khi sửa**, không sửa theo nghi ngờ trên giấy.
+- Phát sinh trong lúc viết test: `/documents/{id}/edit` vỡ thành `TypeError` 500 khi tài liệu chưa có phiên bản nào. Đã sửa cùng nhánh vì thuộc mục 4 (xử lý lỗi HTTP).
+- Đã thử **luồng đầy đủ bằng trình duyệt** trên một instance tách riêng (cổng 8799, `TLVB_DATA` riêng, chế độ demo) để không đụng dịch vụ/DB thật: nhập TXT → lập phiếu → sửa có dẫn nguồn → tải DOCX → sửa trộm DOCX → duyệt bị chặn, từ chối vẫn chạy → hash rỗng bị chặn cả tải lẫn duyệt → bản sạch duyệt được. Đây là mục "chưa thử luồng đầy đủ bằng trình duyệt" của bàn giao cũ, nay đã đóng trên Linux.
+- Vẫn **chưa chạm** Ollama: chưa giải nén gói đầy đủ, chưa thử suy luận. Không nằm trong phạm vi nhánh này.
+

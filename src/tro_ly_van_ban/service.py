@@ -15,6 +15,16 @@ from .model import extract, ModelUnavailable
 from .parser import parse, MAX_BYTES
 
 
+def requires_ocr(blocks: list[dict], warnings: list[str]) -> bool:
+    """Điều kiện cần OCR, suy ra từ dữ liệu bất biến của lần nhập.
+
+    Cố ý không đọc cột `state`: state bị ghi đè bởi save/run, nên dùng nó làm
+    hàng rào thì chỉ cần một lần ghi là cửa mở vĩnh viễn. blocks và warnings
+    được chốt lúc ingest và không đổi.
+    """
+    return not blocks or any("cần OCR" in w for w in warnings)
+
+
 class Flow(TypedDict):
     blocks: list[dict]
     mode: str
@@ -129,7 +139,7 @@ class Service:
                 with target.open("xb") as out:
                     out.write(data)
                 freeze(target)
-            state = "needs_ocr" if not blocks or any("cần OCR" in w for w in warnings) else "ready"
+            state = "needs_ocr" if requires_ocr(blocks, warnings) else "ready"
             with self.db() as db:
                 db.execute("INSERT INTO documents VALUES(?,?,?,?,?,?,?)", (digest, Path(name).name[:200], suffix, json.dumps(blocks, ensure_ascii=False), json.dumps(warnings, ensure_ascii=False), state, ""))
         return digest
@@ -137,7 +147,7 @@ class Service:
     def run(self, document_id):
         with self.lock:
             doc = self.get(document_id)
-            if doc["state"] == "needs_ocr":
+            if requires_ocr(doc["blocks"], doc["warnings"]):
                 raise ValueError("Cần OCR đầy đủ trước khi xử lý")
             try:
                 from fastmcp import Client
@@ -157,6 +167,10 @@ class Service:
     def save(self, document_id, content, expected_version=None, provenance="manual"):
         with self.lock:
             doc = self.get(document_id)
+            # Cua ghi duy nhat: run/manual/edit/save deu di qua day. Chan o giao dien
+            # khong du vi cac route van nhan POST truc tiep.
+            if requires_ocr(doc["blocks"], doc["warnings"]):
+                raise ValueError("Cần OCR đầy đủ trước khi lập phiếu")
             current = doc["latest"]["version"] if doc["latest"] else 0
             if expected_version is not None and expected_version != current:
                 raise ValueError("Phiên bản đã thay đổi; tải lại trang")
@@ -188,6 +202,22 @@ class Service:
                 db.execute("UPDATE documents SET state='awaiting_review',error='' WHERE id=?", (document_id,))
             return version
 
+    def verify_draft(self, document_id, version, expected_hash):
+        """Đối chiếu bytes DOCX trên đĩa với draft_hash đã lưu; trả về đường dẫn.
+
+        Hash rỗng nghĩa là **chưa xác minh**, không phải đã xác minh. Cố ý không
+        backfill bằng cách băm tệp đang có trên đĩa: băm sau sự việc chỉ đóng dấu
+        lên đúng những byte tình cờ nằm đó, kể cả byte đã bị sửa.
+        """
+        if not expected_hash:
+            raise ValueError("Phiên bản này tạo trước khi có draft_hash nên dự thảo chưa xác minh được; hãy tạo phiên bản mới")
+        path = self.path("drafts", f"{document_id}-{version}.docx")
+        if not path.is_file():
+            raise ValueError("Không tìm thấy tệp dự thảo của phiên bản này; hãy tạo phiên bản mới")
+        if hashlib.sha256(path.read_bytes()).hexdigest() != expected_hash:
+            raise ValueError("Dự thảo trên đĩa khác bản đã lưu; hãy tạo phiên bản mới")
+        return path
+
     def review(self, document_id, version, digest, action, reason):
         if action not in {"approved", "rejected"}:
             raise ValueError("Hành động không hợp lệ")
@@ -197,6 +227,12 @@ class Service:
             state = db.execute("SELECT state FROM documents WHERE id=?", (document_id,)).fetchone()
             if not latest or latest["version"] != version or latest["hash"] != digest or state["state"] != "awaiting_review":
                 raise ValueError("Phiên bản cũ hoặc đã duyệt; tải lại trang")
+            if action == "approved":
+                # Hash noi dung JSON khong noi gi ve tep DOCX. Nguoi dung xac nhan
+                # cai ho doc trong DOCX, nen dung bytes DOCX moi la thu phai khop.
+                # Chi chan approve: neu chan ca reject thi mot ban draft bi sua se
+                # ket lai o awaiting_review vinh vien, khong the tu choi.
+                self.verify_draft(document_id, version, latest["draft_hash"])
             db.execute("INSERT INTO approvals(document_id,version,hash,action,reason) VALUES(?,?,?,?,?)", (document_id, version, digest, action, reason[:2000]))
             db.execute("UPDATE documents SET state=? WHERE id=?", (action, document_id))
 

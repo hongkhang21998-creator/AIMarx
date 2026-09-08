@@ -63,12 +63,12 @@ Trên Windows 11, Python 3.14.6, `requirements.lock` cài sạch, `pip check` kh
 
 Để nhánh dễ soát, tôi không đụng các mục sau trong `CLAUDE_OPUS.md` — chúng thuộc về toàn vẹn phê duyệt, không phải đa nền tảng:
 
-- Mục 2: `review()` chưa kiểm bytes DOCX khớp `draft_hash` lúc duyệt.
-- Mục 3: chính sách backfill cột `draft_hash` rỗng.
-- Mục 4: chặn `needs_ocr` đầy đủ ở tầng service, không chỉ giao diện.
-- Mục 5–7: giải nén Ollama, restart UI, systemd, OCR/Docling, checkpointer, watcher, Calendar/outbox, backup/restore.
+- ~~Mục 2: `review()` chưa kiểm bytes DOCX khớp `draft_hash` lúc duyệt.~~ → đã làm ở nhánh `claude/approval-integrity`.
+- ~~Mục 3: chính sách backfill cột `draft_hash` rỗng.~~ → đã làm ở nhánh `claude/approval-integrity`: rỗng = chưa xác minh, không backfill.
+- ~~Mục 4: chặn `needs_ocr` đầy đủ ở tầng service, không chỉ giao diện.~~ → đã làm ở nhánh `claude/approval-integrity`.
+- Mục 5–7 **vẫn còn**: giải nén Ollama, restart UI, systemd, OCR/Docling, checkpointer, watcher, Calendar/outbox, backup/restore.
 
-Lưu ý liên đới: nếu sau này bỏ `chmod` làm cơ chế chống sửa, `draft_hash` trở thành hàng rào **duy nhất** — khi đó mục 2 thành bắt buộc, không còn là tùy chọn.
+Lưu ý liên đới: nếu sau này bỏ `chmod` làm cơ chế chống sửa, `draft_hash` trở thành hàng rào **duy nhất**. Mục 2 nay đã làm nên rủi ro đó đã được chặn trước, không còn treo.
 
 ## 8. Ranh giới để không giẫm chân
 

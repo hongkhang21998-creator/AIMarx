@@ -60,6 +60,9 @@ Ollama cho Windows phải cài riêng: gói `.tar.zst` trong `.runtime/downloads
 - SQLite giữ tài liệu, nguồn, tất cả phiên bản, chế độ/model và lịch sử duyệt. Sổ việc lấy từ phiên bản mới nhất; chỉ `approved` là đã xác nhận. Không có việc/lịch tự gửi ra ngoài.
 - Trường quan trọng dùng `value`, `block_id`, `quote`; mã kiểm tra quote tồn tại trong đúng nguồn và value nằm trong quote. Kiểm tra này chứng minh xuất xứ chữ, **chưa chứng minh model phân loại đúng ý nghĩa**; người dùng phải đối chiếu.
 - Dự thảo luôn mang nhãn chờ kiểm tra; mẫu phiếu kỹ thuật chưa được xác nhận là mẫu hành chính. Việc duyệt không biến DOCX thành văn bản phát hành.
+- Xác nhận đòi **bytes DOCX trên đĩa khớp `draft_hash`** đã lưu, không chỉ khớp hash nội dung JSON: người dùng xác nhận cái họ đọc trong DOCX. Dự thảo bị sửa hoặc mất tệp thì không xác nhận được, nhưng **vẫn từ chối được** — nếu chặn cả từ chối thì bản bị sửa sẽ kẹt ở `awaiting_review` vĩnh viễn.
+- Phiên bản tạo trước khi có cột `draft_hash` mang hash rỗng và được coi là **chưa xác minh**, không phải đã xác minh: không tải và không xác nhận được, giao diện nói rõ. Cố ý **không** backfill bằng cách băm tệp đang nằm trên đĩa — băm sau sự việc chỉ đóng dấu lên đúng những byte tình cờ ở đó, kể cả byte đã bị sửa.
+- Tài liệu `needs_ocr` bị chặn ở **tầng service**, tại `Service.save` — cửa ghi duy nhất mà run/manual/edit/save đều đi qua. Ẩn nút trên giao diện là việc của trải nghiệm, không phải hàng rào: các route vẫn nhận POST trực tiếp. Điều kiện cần OCR suy ra từ `blocks`/`warnings` chốt lúc nhập, không đọc cột `state` vì state bị ghi đè.
 - Mỗi lần sửa hoặc trích xuất tạo phiên bản mới và cần duyệt lại. Trang cũ không duyệt/lưu đè được phiên bản mới. Lịch sử lưu lý do, thời gian SQLite UTC; người duyệt ngầm là người dùng tài khoản local, chưa quản lý danh tính nhiều người.
 - Luồng dùng FastMCP Client in-memory gọi `read_document`, sau đó LangGraph `extract → validate`. Công cụ MCP chỉ đọc (`list_documents`, `read_document`, `get_evidence`), không có approve/shell/SQL/đường dẫn tùy ý. Chạy MCP độc lập bằng `.venv/bin/tro-ly-mcp` qua stdio.
 
@@ -85,4 +88,4 @@ Trên Windows:
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-Bộ test dùng dữ liệu tổng hợp: chống trùng, khởi động lại và lịch sử, nguồn bịa, duyệt/lưu phiên bản cũ, model vắng, demo, scan cần OCR, upload CSRF/origin và FastMCP Client thực. Test model vắng dùng mock mạng; không thay thế thử nghiệm trích xuất model thực.
+Bộ test dùng dữ liệu tổng hợp: chống trùng, khởi động lại và lịch sử, nguồn bịa, duyệt/lưu phiên bản cũ, model vắng, demo, scan cần OCR, upload CSRF/origin, FastMCP Client thực, dự thảo bị sửa/mất tệp, hash rỗng không được coi là đã xác minh, và chặn `needs_ocr` ở tầng service qua cả bốn cửa ghi. Test model vắng dùng mock mạng; không thay thế thử nghiệm trích xuất model thực.

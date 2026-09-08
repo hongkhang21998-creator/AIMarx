@@ -221,3 +221,79 @@ def test_large_model_input_does_not_call_network(service, monkeypatch):
     with pytest.raises(ValueError, match="5.000"):
         service.run(doc_id)
     assert service.get(doc_id)["state"] == "error"
+
+
+def test_review_requires_matching_draft_bytes(service):
+    # Hash noi dung JSON khong bao ve tep DOCX. Nguoi dung xac nhan cai ho doc
+    # trong DOCX, nen sua DOCX sau khi luu phai chan duoc xac nhan.
+    doc_id = sample(service)
+    version = service.save(doc_id, content())
+    latest = service.get(doc_id)["latest"]
+    draft = service.path("drafts", f"{doc_id}-{version}.docx")
+    thaw(draft)
+    draft.write_bytes(b"DOCX da bi thay the")
+    freeze(draft)
+    with pytest.raises(ValueError, match="khác bản đã lưu"):
+        service.review(doc_id, version, latest["hash"], "approved", "")
+    assert service.get(doc_id)["state"] == "awaiting_review"
+    assert service.get(doc_id)["approvals"] == []
+    # Tu choi van phai chay duoc, neu khong ban draft bi sua se ket lai vinh vien.
+    service.review(doc_id, version, latest["hash"], "rejected", "Tệp không khớp")
+    assert service.get(doc_id)["state"] == "rejected"
+
+
+def test_missing_draft_file_blocks_approval(service):
+    doc_id = sample(service)
+    version = service.save(doc_id, content())
+    latest = service.get(doc_id)["latest"]
+    draft = service.path("drafts", f"{doc_id}-{version}.docx")
+    thaw(draft)
+    draft.unlink()
+    with pytest.raises(ValueError, match="Không tìm thấy tệp dự thảo"):
+        service.review(doc_id, version, latest["hash"], "approved", "")
+    assert service.get(doc_id)["state"] == "awaiting_review"
+
+
+def test_empty_draft_hash_is_unverified_not_verified(service):
+    # Migration dat draft_hash='' cho ban cu. Rong = chua xac minh, khong duoc
+    # coi la da xac minh, va khong duoc backfill bang cach bam tep dang co.
+    doc_id = sample(service)
+    version = service.save(doc_id, content())
+    latest = service.get(doc_id)["latest"]
+    with service.db() as db:
+        db.execute("UPDATE versions SET draft_hash='' WHERE document_id=? AND version=?", (doc_id, version))
+    assert service.get(doc_id)["latest"]["draft_hash"] == ""
+    with pytest.raises(ValueError, match="chưa xác minh"):
+        service.review(doc_id, version, latest["hash"], "approved", "")
+    assert service.get(doc_id)["state"] == "awaiting_review"
+    with TestClient(create_app(service), base_url="http://127.0.0.1") as client:
+        page = client.get(f"/documents/{doc_id}/draft/{version}")
+        assert "chưa xác minh được" in page.text
+        assert "không xác minh được" in client.get(f"/documents/{doc_id}").text
+
+
+def test_needs_ocr_blocked_in_service_not_only_ui(service):
+    # Cac route van nhan POST truc tiep du giao dien da an nut, nen hang rao
+    # phai nam o Service.save.
+    writer = PdfWriter()
+    writer.add_blank_page(width=200, height=200)
+    data = BytesIO()
+    writer.write(data)
+    scan = service.ingest("scan.pdf", data.getvalue())
+    assert service.get(scan)["state"] == "needs_ocr"
+    for call in (lambda: service.run(scan),
+                 lambda: service.save(scan, {}),
+                 lambda: service.save(scan, {}, provenance="manual")):
+        with pytest.raises(ValueError, match="OCR"):
+            call()
+    assert service.get(scan)["state"] == "needs_ocr"
+    assert service.get(scan)["latest"] is None
+    with TestClient(create_app(service), base_url="http://127.0.0.1") as client:
+        csrf = re.search('name="csrf" value="([^"]+)"', client.get("/").text).group(1)
+        for route, payload in (("manual", {"version": 0}),
+                               ("save", {"version": 0, "content": "{}"}),
+                               ("edit", {"version": 0})):
+            response = client.post(f"/documents/{scan}/{route}", data={"csrf": csrf, **payload})
+            assert "OCR" in response.text, route
+    assert service.get(scan)["state"] == "needs_ocr"
+    assert service.get(scan)["latest"] is None

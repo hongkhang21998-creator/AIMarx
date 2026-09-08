@@ -1,4 +1,3 @@
-import hashlib
 import html
 import json
 import os
@@ -104,6 +103,8 @@ def create_app(service=None):
                 body += field(f"request_{i}", f"Việc {i+1}", task.get("request"))
                 body += field(f"deadline_{i}", "Hạn nguyên văn", task.get("deadline"))
             body += '<button>Lưu phiếu thành phiên bản mới</button></form>'
+            if not latest["draft_hash"]:
+                body += '<p class="warn">Phiên bản này chưa có <code>draft_hash</code> nên dự thảo DOCX <b>không xác minh được</b>. Không tải và không xác nhận được; hãy lưu lại thành phiên bản mới.</p>'
             body += '<p>' + esc('; '.join(data['missing'])) + '</p><details><summary>Dữ liệu JSON nâng cao</summary>'
             body += f'<h3>Phiên bản {latest["version"]}</h3><a href="/documents/{doc_id}/draft/{latest["version"]}">Tải DOCX dự thảo</a><form action="/documents/{doc_id}/save" method="post">{hidden}<input type="hidden" name="version" value="{latest["version"]}"><label>Sửa phiếu JSON (value phải nguyên văn trong quote; block_id xem nguồn)<textarea name="content">{esc(content)}</textarea></label><button>Lưu phiên bản mới</button></form></details>'
             body += f'<form action="/documents/{doc_id}/review" method="post">{hidden}<input type="hidden" name="version" value="{latest["version"]}"><input type="hidden" name="hash" value="{latest["hash"]}"><label>Lý do / ghi chú <input name="reason"></label><button name="action" value="approved"{disabled}>Tôi xác nhận phiên bản này</button><button name="action" value="rejected"{disabled}>Từ chối</button></form>'
@@ -126,8 +127,6 @@ def create_app(service=None):
     @app.post("/documents/{doc_id}/manual")
     async def manual(doc_id: str, request: Request):
         form = await checked_form(request)
-        if service.get(doc_id)["state"] == "needs_ocr":
-            raise ValueError("Cần OCR đầy đủ trước khi lập phiếu")
         service.save(doc_id, {}, int(str(form["version"])), provenance="manual")
         return RedirectResponse(f"/documents/{doc_id}", 303)
 
@@ -151,7 +150,9 @@ def create_app(service=None):
                 raise ValueError("Chọn đoạn nguồn cho mỗi dữ kiện đã nhập")
             return {"value": text, "block_id": block_id, "quote": text}
         content = {key: value(key) for key in ("number", "agency", "document_date")}
-        content["missing"] = json.loads(doc["latest"]["content"])["missing"]
+        # Tai lieu chua co phien ban nao thi latest la None. Khong duoc de vo thanh
+        # TypeError 500: cu di tiep de Service.save la cua chan duy nhat.
+        content["missing"] = json.loads(doc["latest"]["content"])["missing"] if doc["latest"] else []
         content["tasks"] = []
         for i in range(30):
             task = value(f"request_{i}")
@@ -171,9 +172,7 @@ def create_app(service=None):
         doc = service.get(doc_id)
         if not doc["latest"] or version != doc["latest"]["version"]:
             raise ValueError("Chỉ tải bản hiện tại qua giao diện")
-        path = service.path("drafts", f"{doc_id}-{version}.docx")
-        if hashlib.sha256(path.read_bytes()).hexdigest() != doc["latest"]["draft_hash"]:
-            raise ValueError("Dự thảo bị thay đổi hoặc chưa có hash; hãy tạo phiên bản mới")
+        path = service.verify_draft(doc_id, version, doc["latest"]["draft_hash"])
         return FileResponse(path, filename=f"du-thao-v{version}.docx")
 
     @app.get("/tasks")

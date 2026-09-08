@@ -33,3 +33,7 @@ def create_mcp(service):
 
 def main():
     create_mcp(Service(os.getenv("TLVB_DATA", "data"))).run(transport="stdio")
+
+
+if __name__ == "__main__":
+    main()

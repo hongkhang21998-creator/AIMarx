@@ -1,6 +1,9 @@
 import asyncio
 import json
+import os
 import re
+import subprocess
+import sys
 from io import BytesIO
 import httpx
 import pytest
@@ -9,6 +12,7 @@ from pypdf import PdfWriter
 from fastapi.testclient import TestClient
 from fastmcp import Client
 from tro_ly_van_ban.domain import Extraction, validate_evidence
+from tro_ly_van_ban.fsguard import freeze, thaw
 from tro_ly_van_ban.service import Service
 from tro_ly_van_ban.model import ModelUnavailable
 from tro_ly_van_ban.mcp_server import create_mcp
@@ -117,12 +121,58 @@ def test_path_and_file_limits(service, tmp_path):
         service.ingest("old.doc", b"anything")
     with pytest.raises(ValueError):
         service.ingest("huge.txt", b"x" * (10 * 1024 * 1024 + 1))
+
+
+def test_symlink_in_store_rejected(service, tmp_path):
     outside = tmp_path / "outside"
     outside.write_text("keep")
     link = service.root / "originals" / "link"
-    link.symlink_to(outside)
+    try:
+        link.symlink_to(outside)
+    except OSError as exc:  # Windows doi quyen SeCreateSymbolicLink
+        pytest.skip(f"Không tạo được symlink trong môi trường này: {exc}")
     with pytest.raises(ValueError):
         service.path("originals", "link")
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Junction chỉ có trên Windows")
+def test_junction_in_store_rejected(service, tmp_path):
+    # Junction khong phai symlink nen is_symlink() bo qua; chan boi kiem tra thu muc cha.
+    outside = tmp_path / "outside_dir"
+    outside.mkdir()
+    link = service.root / "originals" / "junction"
+    made = subprocess.run(["cmd", "/c", "mklink", "/J", str(link), str(outside)], capture_output=True)
+    if made.returncode != 0:
+        pytest.skip("Không tạo được junction: " + made.stderr.decode("utf-8", "replace")[:200])
+    with pytest.raises(ValueError):
+        service.path("originals", "junction")
+
+
+def test_frozen_file_can_be_replaced_and_removed(tmp_path):
+    # Windows: read-only chan ca os.replace lan os.remove; thaw phai go duoc.
+    target = tmp_path / "t.bin"
+    target.write_bytes(b"cu")
+    freeze(target)
+    source = tmp_path / "t.tmp"
+    source.write_bytes(b"moi")
+    thaw(target)
+    os.replace(source, target)
+    assert target.read_bytes() == b"moi"
+    freeze(target)
+    thaw(target)
+    target.unlink()
+    assert not target.exists()
+
+
+def test_db_file_not_locked_after_use(service):
+    # Windows giu file handle neu connection sqlite khong duoc dong.
+    doc_id = sample(service)
+    service.run(doc_id)
+    service.listing()
+    database = service.root / "state.sqlite3"
+    moved = service.root / "state.backup"
+    os.replace(database, moved)
+    assert moved.exists()
 
 
 def test_edit_form_and_reject_flow(service):

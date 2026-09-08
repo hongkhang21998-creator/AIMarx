@@ -2,12 +2,16 @@ name: Tests
 on:
   pull_request:
   push:
-    branches: [main, 'codex/**']
+    branches: [main, 'codex/**', 'claude/**']
 permissions:
   contents: read
 jobs:
   local-mvp:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -23,3 +27,4 @@ jobs:
         env:
           LANGCHAIN_TRACING_V2: 'false'
           LANGSMITH_TRACING: 'false'
+          PYTHONUTF8: '1'

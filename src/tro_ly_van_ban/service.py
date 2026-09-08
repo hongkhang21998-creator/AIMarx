@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import hashlib
 import json
 import os
@@ -9,6 +10,7 @@ from typing import TypedDict
 from docx import Document
 from langgraph.graph import StateGraph, START, END
 from .domain import Extraction, validate_evidence
+from .fsguard import freeze, harden_dir, thaw
 from .model import extract, ModelUnavailable
 from .parser import parse, MAX_BYTES
 
@@ -47,11 +49,14 @@ class Service:
             raise ValueError("Data directory cannot be a symlink")
         self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
         self.root = self.root.resolve()
+        # Windows bo qua mode cua mkdir; canh bao thay vi mat quyen rieng tu trong im lang.
+        self.warnings = [w for w in [harden_dir(self.root)] if w]
         for folder in ("originals", "drafts"):
             path = self.root / folder
             if path.is_symlink():
                 raise ValueError("Storage directory cannot be a symlink")
             path.mkdir(exist_ok=True, mode=0o700)
+            harden_dir(path)
         if (self.root / "state.sqlite3").is_symlink():
             raise ValueError("Database cannot be a symlink")
         self.mode, self.model = mode, model
@@ -66,10 +71,17 @@ class Service:
             if "draft_hash" not in {row[1] for row in db.execute("PRAGMA table_info(versions)")}:
                 db.execute("ALTER TABLE versions ADD COLUMN draft_hash TEXT NOT NULL DEFAULT ''")
 
+    @contextlib.contextmanager
     def db(self):
+        # Phai close: `with conn` chi commit/rollback. Windows giu file handle,
+        # khoa DB va chan xoa tep neu connection khong dong.
         conn = sqlite3.connect(self.root / "state.sqlite3", timeout=30)
         conn.row_factory = sqlite3.Row
-        return conn
+        try:
+            with conn:
+                yield conn
+        finally:
+            conn.close()
 
     def path(self, folder, name):
         path = self.root / folder / name
@@ -116,7 +128,7 @@ class Service:
             else:
                 with target.open("xb") as out:
                     out.write(data)
-                target.chmod(0o400)
+                freeze(target)
             state = "needs_ocr" if not blocks or any("cần OCR" in w for w in warnings) else "ready"
             with self.db() as db:
                 db.execute("INSERT INTO documents VALUES(?,?,?,?,?,?,?)", (digest, Path(name).name[:200], suffix, json.dumps(blocks, ensure_ascii=False), json.dumps(warnings, ensure_ascii=False), state, ""))
@@ -167,8 +179,9 @@ class Service:
             target = self.path("drafts", f"{document_id}-{version}.docx")
             temp = self.path("drafts", f"{document_id}-{version}.tmp")
             draft.save(temp)
+            thaw(target)  # Windows: os.replace that bai neu dich dang read-only
             os.replace(temp, target)
-            target.chmod(0o400)
+            freeze(target)
             draft_hash = hashlib.sha256(target.read_bytes()).hexdigest()
             with self.db() as db:
                 db.execute("INSERT INTO versions(document_id,version,content,hash,mode,model,draft_hash) VALUES(?,?,?,?,?,?,?)", (document_id, version, encoded, digest, provenance, self.model if provenance == "ollama" else "", draft_hash))

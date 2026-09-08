@@ -16,3 +16,11 @@
 - Bản bàn giao chính: `docs/handoffs/CLAUDE_OPUS.md`. Đọc trước khi nhận phần việc.
 - Kiểm thử gần nhất 10 passed trước các sửa manual/provenance/draft_hash cuối; snapshot bàn giao chưa được chạy lại toàn bộ test.
 - UI/Ollama API local đang chạy; runtime Ollama đầy đủ đã tải và xác minh nhưng chưa giải nén, chưa xác nhận inference.
+
+## 2026-09-08 — claude/cross-platform — Claude Opus tiếp quản, làm đa nền tảng
+
+- Nhận bàn giao từ `docs/handoffs/CLAUDE_OPUS.md`. Người dùng yêu cầu hệ thống chạy được **độc lập trên cả Windows và Linux**; Linux vẫn là máy chủ chính.
+- Nhánh: `claude/cross-platform`, base `89d05ae` trên `main`.
+- Phạm vi nhánh này **chỉ là tương thích hệ điều hành**. Cố ý không đụng thiết kế phê duyệt, không làm mục 2–3 bàn giao (`review()` kiểm bytes `draft_hash`, chính sách backfill hash rỗng) — tách PR sau cho dễ soát khi merge.
+- **Chưa chạm vào laptop Linux**: chưa SSH, chưa restart dịch vụ, chưa giải nén gói Ollama, chưa thử inference. Máy Linux giữ nguyên trạng thái như `CLAUDE_OPUS.md` mô tả.
+- Bản bàn giao ngược cho GPT Astra: `docs/handoffs/GPT_ASTRA.md`.

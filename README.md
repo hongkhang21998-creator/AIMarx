@@ -32,6 +32,28 @@ Tên model là cấu hình, không phải khuyến nghị chất lượng nghi�
 
 Chỉ chạy **một tiến trình UI, một worker**, giữ DB trên đĩa local. CLI luôn bind loopback. Không đưa qua reverse proxy hoặc mạng LAN: MVP dùng quyền tài khoản máy và token chống CSRF, chưa có đăng nhập nhiều người. `scripts/run-ollama.sh` dành cho bộ Ollama đã cài tại `.runtime/ollama/bin/ollama`, bật `OLLAMA_NO_CLOUD=1` và lưu model ở `.runtime/models`. Xem [vận hành](docs/DEPLOYMENT.md).
 
+## Chạy trên Windows
+
+Cùng codebase, chạy **độc lập**, dữ liệu riêng, vẫn bind `127.0.0.1`. Đã chạy thật trên Windows 11 với Python 3.14 và `requirements.lock` hiện tại (`pip check` sạch).
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.lock
+.\.venv\Scripts\python.exe -m pip install --no-deps -e .
+$env:TLVB_MODE = "demo"
+powershell -ExecutionPolicy Bypass -File scripts\run-local.ps1
+```
+
+Khác biệt so với Linux, đã xử lý trong mã:
+
+- `mkdir(mode=0o700)` **không có hiệu lực** trên Windows. Nếu `TLVB_DATA` nằm ngoài thư mục hồ sơ người dùng, giao diện hiện cảnh báo ngay đầu trang. Mã **không tự đổi ACL**: chạy sai `icacls /inheritance:r` có thể khóa mất quyền truy cập chính thư mục dữ liệu, nên đây là việc người dùng làm thủ công có chủ đích.
+- Thuộc tính read-only của Windows chặn cả `os.replace` lẫn `os.remove`; `fsguard.thaw()` gỡ trước khi ghi đè hoặc xóa.
+- Connection SQLite phải `close()`: `with conn` chỉ commit. Không đóng thì Windows giữ file handle, khóa DB và chặn xóa tệp.
+- `PYTHONUTF8=1` là **bắt buộc** khi stdout bị chuyển hướng ra file hoặc chạy dưới dạng dịch vụ, nếu không tiếng Việt gây `UnicodeEncodeError` (cp1252). `run-local.ps1` đã đặt sẵn.
+- Tạo symlink cần quyền `SeCreateSymbolicLinkPrivilege` nên test symlink tự bỏ qua; test junction thay thế để vẫn phủ hàng rào chặn thoát thư mục.
+
+Ollama cho Windows phải cài riêng: gói `.tar.zst` trong `.runtime/downloads` là **bản Linux**. Model GGUF dùng chung được giữa hai hệ — sao chép `.runtime/models` sang là đủ, không cần tải lại.
+
 ## Dữ liệu và kiểm soát
 
 - SHA-256 chống trùng nội dung dù đổi tên; bản gốc được tạo độc quyền, đặt chỉ đọc. File thay đổi là tài liệu mới. Đây không phải kho WORM chống quản trị viên sửa.
@@ -55,6 +77,12 @@ Các giai đoạn tiếp theo còn gồm: mẫu hành chính do người dùng x
 
 ```bash
 .venv/bin/pytest -q
+```
+
+Trên Windows:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -q
 ```
 
 Bộ test dùng dữ liệu tổng hợp: chống trùng, khởi động lại và lịch sử, nguồn bịa, duyệt/lưu phiên bản cũ, model vắng, demo, scan cần OCR, upload CSRF/origin và FastMCP Client thực. Test model vắng dùng mock mạng; không thay thế thử nghiệm trích xuất model thực.

@@ -47,8 +47,11 @@ def create_app(service=None):
             raise HTTPException(403, "CSRF không hợp lệ; tải lại trang")
         return form
 
+    def warn_banner():
+        return ''.join('<p class="warn"><b>Cảnh báo môi trường:</b> ' + esc(w) + '</p>' for w in getattr(service, "warnings", []))
+
     def page(body):
-        return HTMLResponse('<!doctype html><html lang="vi"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Trợ lý văn bản</title><style>body{font:17px system-ui;max-width:1100px;margin:30px auto;padding:20px;background:#f5f7fa;color:#182b3a}textarea{width:100%;min-height:320px}pre{white-space:pre-wrap}button,input{padding:9px;margin:5px}article{background:white;padding:20px;margin:15px 0;border:1px solid #ccd}a{color:#075e8f}</style><a href="/">Kho tài liệu</a> · <a href="/tasks">Sổ công việc</a><h1>Trợ lý văn bản local</h1><p>Chế độ: <strong>' + esc(service.mode) + '</strong>. Phiếu thử nghiệm; chưa phải mẫu văn bản hành chính được xác nhận.</p>' + body + '</html>')
+        return HTMLResponse('<!doctype html><html lang="vi"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Trợ lý văn bản</title><style>body{font:17px system-ui;max-width:1100px;margin:30px auto;padding:20px;background:#f5f7fa;color:#182b3a}textarea{width:100%;min-height:320px}pre{white-space:pre-wrap}button,input{padding:9px;margin:5px}article{background:white;padding:20px;margin:15px 0;border:1px solid #ccd}a{color:#075e8f}.warn{background:#fff3cd;border:1px solid #e0b000;padding:12px;margin:12px 0}</style><a href="/">Kho tài liệu</a> · <a href="/tasks">Sổ công việc</a><h1>Trợ lý văn bản local</h1><p>Chế độ: <strong>' + esc(service.mode) + '</strong>. Phiếu thử nghiệm; chưa phải mẫu văn bản hành chính được xác nhận.</p>' + warn_banner() + body + '</html>')
 
     @app.exception_handler(ValueError)
     async def bad_value(request, exc):
@@ -187,3 +190,7 @@ def create_app(service=None):
 def main():
     import uvicorn
     uvicorn.run(create_app(), host="127.0.0.1", port=int(os.getenv("TLVB_PORT", "8765")), workers=1)
+
+
+if __name__ == "__main__":
+    main()

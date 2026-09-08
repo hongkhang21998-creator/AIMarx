@@ -36,3 +36,21 @@
 - Đã thử **luồng đầy đủ bằng trình duyệt** trên một instance tách riêng (cổng 8799, `TLVB_DATA` riêng, chế độ demo) để không đụng dịch vụ/DB thật: nhập TXT → lập phiếu → sửa có dẫn nguồn → tải DOCX → sửa trộm DOCX → duyệt bị chặn, từ chối vẫn chạy → hash rỗng bị chặn cả tải lẫn duyệt → bản sạch duyệt được. Đây là mục "chưa thử luồng đầy đủ bằng trình duyệt" của bàn giao cũ, nay đã đóng trên Linux.
 - Vẫn **chưa chạm** Ollama: chưa giải nén gói đầy đủ, chưa thử suy luận. Không nằm trong phạm vi nhánh này.
 
+
+## 2026-09-08 — Codex tester — giao việc Claude ngày 09/09
+
+- Người dùng yêu cầu QA và chuẩn bị giao Claude sửa ngày mai. Không sửa mã sản phẩm hoặc merge.
+- Baseline HEAD `0981e7d`; tree trùng main merge PR #4 `822ce30` (`b90b589be96fa9fbdcf86edb0cd2d038f4f3af22`). Test trên snapshot /tmp, dữ liệu tổng hợp riêng.
+- Bộ cũ: 17 passed, 1 skipped; pip check sạch. Bộ tái hiện bổ sung: 7 failed thuộc 4 nhóm lỗi: trạng thái duyệt sau inference lỗi; blocking event loop khi ghi đồng thời; stale /run; validation HTTP.
+- Báo cáo: `docs/handoffs/QA_CLAUDE_2026-09-09.md`; bộ tái hiện và output trong `docs/qa/2026-09-08/`. Các file này đang local, chưa commit; GitHub Issue #5 có đầy đủ báo cáo và code test để tiếp quản từ xa.
+- Issue giao việc: https://github.com/hongkhang21998-creator/tro-ly-van-ban/issues/5 . Claude cần nhận phạm vi và ghi nhánh/base trước khi sửa service.py/web.py; người dùng merge. Chưa điều khiển hoặc xác nhận Claude đã nhận việc.
+- Không chạm data/, runtime, UI/Ollama thật. Chưa kiểm thử browser/Windows trực tiếp hoặc inference thật trong phiên này.
+
+## 2026-09-08 tối — claude/qa-baseline — nhận việc Issue #5, chưa sửa mã
+
+- Nhánh: `claude/qa-baseline`, base `822ce30` trên `main`. Phạm vi: **chỉ `docs/`**, không đụng `src/` hay `tests/`.
+- Đã đối chiếu bằng chứng của Issue #5: PR #4 merge `822ce30`, tree trùng `0981e7d` (`b90b589…`). Chạy lại: bộ cũ 17 passed 1 skipped, bộ QA 7 failed. **Tái hiện đủ cả bảy**, báo cáo trung thực.
+- Hai điểm nặng hơn báo cáo, đã ghi vào `docs/handoffs/QA_CLAUDE_2026-09-09.md`: (1) QA-01 làm bản `awaiting_review` **kẹt vĩnh viễn không duyệt lại được**, không chỉ hiển thị sai; (2) QA-02 ảnh hưởng **năm** route async chứ không một, `/upload` parse PDF ngay trên event loop nên treo UI cả khi không có model.
+- Bộ QA đưa vào repo nguyên assertion, thêm `xfail(strict=True)`: CI xanh, lỗi vẫn nằm trong repo, và khi sửa xong CI sẽ đỏ vì XPASS để buộc gỡ marker.
+- **Nhận phạm vi cho ngày 09/09**: `service.py` và `web.py` cho cả bốn nhóm QA-01…04. Chatbot khác đừng sửa hai file này trước khi đọc PR.
+- Kế hoạch đã chốt với anh Khang: hai PR — P1 (QA-01 + QA-02) rồi P2 (QA-03 + QA-04). Tối nay **không sửa lỗi nào**; chưa chạm Ollama, UI, `data/`.

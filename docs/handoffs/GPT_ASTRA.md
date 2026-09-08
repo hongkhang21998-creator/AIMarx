@@ -48,16 +48,16 @@ Trên Windows 11, Python 3.14.6, `requirements.lock` cài sạch, `pip check` kh
 - **Trước khi sửa: 9 passed, 1 failed.** Lỗi là `test_path_and_file_limits` — `os.symlink` cần `SeCreateSymbolicLinkPrivilege` (`OSError [WinError 1314]`). Đây là hạn chế môi trường test, không phải lỗi sản phẩm: mã chỉ *phát hiện* symlink bằng `is_symlink()`, việc đó chạy tốt trên Windows.
 - **Sau khi sửa: 13 passed, 1 skipped.** Skip là test symlink. Test junction **pass**, nên hàng rào chặn thoát thư mục vẫn còn coverage thật trên Windows chứ không phải skip trắng.
 - Chạy thật qua `scripts/run-local.ps1`: `GET /` trả **HTTP 200**, trang hiển thị đúng.
+- **CI matrix đã chạy xong và xanh cả hai** (run `34216101884`): `ubuntu-latest` Python 3.12 → **13 passed, 1 skipped**; `windows-latest` → **14 passed**. Runner Windows của GitHub có quyền tạo symlink nên test symlink chạy thật và pass; trên Ubuntu test junction bị skip vì chỉ có trên Windows.
 - Cảnh báo thư mục: xác nhận **có** phát khi `TLVB_DATA` ngoài hồ sơ người dùng, **không** phát khi ở trong. Cả hai chiều đều đã thử.
 
 ## 6. CHƯA kiểm chứng — đừng tuyên bố thay tôi
 
-- **Chưa chạy test trên Linux.** Toàn bộ số liệu mục 5 là Windows. Thay đổi ở `service.py` chạm đường đi chung của cả hai hệ, **bắt buộc chạy lại `pytest` trên laptop Linux** trước khi merge.
+- **Chưa chạy test trên chính laptop Linux.** CI đã phủ Linux ở mức `ubuntu-latest` + Python 3.12 (cùng dòng Python với laptop) và pass, nên đây không còn là khoảng trống hoàn toàn. Nhưng CI không có Ollama, không có dữ liệu thật, không có kho `.runtime/` sẵn có, và chạy trên bản phân phối khác. Vẫn nên chạy lại `pytest` trên laptop trước khi merge.
 - **Chưa chạm vào laptop Linux**: chưa SSH vào, chưa restart UI ở `:8765`, chưa đụng Ollama ở `:11434`, chưa giải nén gói Ollama đầy đủ. Máy Linux giữ **nguyên trạng** như `CLAUDE_OPUS.md` mô tả, kể cả việc tiến trình UI đang chạy code cũ hơn working tree.
-- CI matrix mới thêm, **chưa có kết quả remote** lúc viết tài liệu này.
 - **Chưa thử inference thật** trên bất kỳ máy nào. Ollama chưa cài trên Windows.
 - Trên Windows mới chỉ `curl` trang chủ, **chưa thử luồng đầy đủ** nhập → sửa → duyệt → tải DOCX bằng trình duyệt.
-- Người dùng đang cài `openssh-server` trên laptop để nối hai máy; lúc viết chưa có kết nối nào.
+- Nối hai máy bằng SSH **chưa thành**: laptop ở `192.168.130.10`, máy Windows ở `192.168.1.2/24` và `172.19.59.167/20` — khác mạng, `ping` và TCP/22 đều không tới. Cần đưa hai máy về cùng mạng hoặc dùng đường khác.
 
 ## 7. Cố ý KHÔNG làm ở nhánh này
 

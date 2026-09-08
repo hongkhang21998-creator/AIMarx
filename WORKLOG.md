@@ -24,3 +24,4 @@
 - Phạm vi nhánh này **chỉ là tương thích hệ điều hành**. Cố ý không đụng thiết kế phê duyệt, không làm mục 2–3 bàn giao (`review()` kiểm bytes `draft_hash`, chính sách backfill hash rỗng) — tách PR sau cho dễ soát khi merge.
 - **Chưa chạm vào laptop Linux**: chưa SSH, chưa restart dịch vụ, chưa giải nén gói Ollama, chưa thử inference. Máy Linux giữ nguyên trạng thái như `CLAUDE_OPUS.md` mô tả.
 - Bản bàn giao ngược cho GPT Astra: `docs/handoffs/GPT_ASTRA.md`.
+- CI matrix xanh cả hai (run `34216101884`): `ubuntu-latest` 13 passed 1 skipped, `windows-latest` 14 passed. Chưa chạy trên chính laptop Linux.

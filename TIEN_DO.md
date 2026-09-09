@@ -20,7 +20,24 @@ Cập nhật: 09/09/2026. Theo yêu cầu anh Nguyen Hong Khang: **mỗi ngày l
 | Gemini qua AI Studio — triển khai gói nhỏ | Dữ liệu giả lập, nội dung giao diện, mẫu theo đặc tả; code nhỏ khi có hợp đồng rõ |
 | Anh Khang | Chốt yêu cầu nghiệp vụ, nghiệm thu mẫu và merge |
 
-Gemini chưa có kết nối repo trong quy trình này. Đầu ra được anh đưa về để kiểm tra; không coi trả lời trong AI Studio là đã sửa file hoặc chạy test.
+Gemini đã có kết nối repo ở mức **đọc một chiều** từ 09/09/2026; xem mục "Kết nối AI Studio và GitHub" bên dưới. Đầu ra vẫn do anh đưa về để kiểm tra; **không coi trả lời trong AI Studio là đã sửa file hoặc chạy test**.
+
+## Kết nối AI Studio và GitHub (09/09/2026)
+
+Ghi nhận thay đổi so với câu "Gemini chưa có kết nối repo" ở bản trước.
+
+- GitHub App **Google AI Studio** (`google-gemini`) đã cài trên tài khoản cá nhân `hongkhang21998-creator`, phạm vi **chỉ repo `tro-ly-van-ban`**; cố ý không chọn "All repositories".
+- Quyền cố định của app, không giảm bớt được: đọc commit statuses/issues/metadata; **đọc và ghi** actions, administration, code, pull requests, workflows.
+- Trước đó app chỉ cài trên tổ chức `Huong-dong-team`, nên repo private của tài khoản cá nhân không hiện trong danh sách import. Repo `Khang` hiện ra chỉ vì nó công khai.
+- Thu hồi khi cần: GitHub → Settings → Applications → Installed GitHub Apps → Google AI Studio → Configure → Uninstall.
+
+**Kết nối là một chiều.** AI Studio ghi rõ "Imported code won't stay synced with GitHub". Đã rà toàn bộ thanh công cụ của app: chỉ có Remix, Share, Publish, Settings; **không có nút đẩy ngược về GitHub**, cũng không có export. Import chỉ kéo một bản sao tại thời điểm bấm.
+
+**App đã tạo nhưng không chạy được.** App `tro-ly-van-ban` trong My apps báo "Your application failed to start". AI Studio chỉ hỗ trợ web và Android app, và "will convert other apps automatically": nó tự sinh `package.json`, `tsconfig.json`, `vite.config.ts`, `index.html`, `src/types.ts`, `src/index.css` để ép backend Python/FastAPI thành app Vite/TypeScript. Đã dừng tay giữa chừng. Anh quyết định để nguyên, tính sau.
+
+**Đã kiểm chứng repo không bị ghi gì**, ba cách độc lập sau khi cài app: SHA của cả 11 nhánh không đổi; không có tag nào; 12 sự kiện gần nhất đều do `hongkhang21998-creator`, mới nhất 03:13 UTC trong khi app được cài khoảng 07:00 UTC.
+
+Kết luận cho quy trình: **không đổi phân công**. Gemini vẫn không ghi vào repo; đầu ra vẫn do anh đưa về để Codex kiểm tra.
 
 ## Bảng tiến độ
 
@@ -28,9 +45,9 @@ Trạng thái “đã chuẩn bị” không có nghĩa đã triển khai hoặc
 
 | Mã | Buổi | Một đầu việc | Người chính | Điểm dừng | Trạng thái |
 |---|---|---|---|---|---|
-| P00 | 09/09/2026 | Ghi nhịp làm việc và gói Gemini vào repo | Codex | PR tài liệu được tạo, bàn giao cho anh | Đã chuẩn bị trên nhánh PR; chờ anh merge |
-| G01a | Buổi kế tiếp | Gemini tạo đúng 2 ca: trích xuất hạn rõ; soạn mới thiếu số liệu | Gemini | Trả JSON 2 ca rồi dừng | Chưa bắt đầu |
-| G01b | Buổi sau | Kiểm tra 2 ca G01a | Codex | Kết luận đạt hoặc ghi đúng lỗi cần sửa | Chờ G01a |
+| P00 | 09/09/2026 | Ghi nhịp làm việc và gói Gemini vào repo | Codex | PR tài liệu được tạo, bàn giao cho anh | Đã merge vào main qua PR #12 |
+| G01a | 09/09/2026 | Gemini tạo đúng 2 ca: trích xuất hạn rõ; soạn mới thiếu số liệu | Gemini | Trả JSON 2 ca rồi dừng | Đã chạy; JSON ở `docs/handoffs/G01a-ket-qua.json`; chờ nghiệm thu |
+| G01b | Buổi sau | Kiểm tra 2 ca G01a | Codex | Kết luận đạt hoặc ghi đúng lỗi cần sửa | Sẵn sàng: đầu ra G01a đã có |
 | G01c | Khi 2 ca đầu đạt | Tạo thêm 3 ca: nguồn mâu thuẫn, hạn tương đối, thiếu người ký | Gemini | 3 ca JSON rồi dừng | Chờ G01b |
 | Q01 | Buổi riêng | Kiểm tra một PR QA của Claude theo SHA mới nhất | Codex | Báo cáo kiểm tra cho một PR | Chưa lên lịch |
 | S00 | Sau khi QA ổn định | Chốt một phương án thử Swarm + model local và yêu cầu môi trường | Codex | Bản cấu hình đề xuất có điểm chưa xác minh | Chưa bắt đầu |
@@ -64,3 +81,14 @@ Trước khi code, đọc WORKLOG và các PR đang mở. Người nhận việc
 ## Nhật ký phiên P00
 
 Chỉ tạo TIEN_DO.md và gói hướng dẫn Gemini trên nhánh codex/daily-small-steps từ main. Không sửa src/tests/schema/runtime, không gửi prompt tới Gemini hoặc bắt đầu task cho Claude. Tài liệu này thay nhịp “sáng sửa hết, chiều chạy model” trước đây bằng các buổi nhỏ, không dồn việc.
+
+## Bàn giao buổi 09/09/2026
+
+- Ngày, mã việc, người phụ trách: 09/09/2026 — G01a do Gemini; ghi nhận kết nối AI Studio do Claude.
+- Nhánh, base SHA và phạm vi file: `claude/tien-do-ket-noi-aistudio`, base `b3b34c1`; chỉ đụng `TIEN_DO.md` và thêm `docs/handoffs/G01a-ket-qua.json`. Không sửa mã nguồn.
+- Đã làm: chạy G01a trên AI Studio đúng gói việc (Phần A vào System Instructions, Phần B vào chat, không upload repo), model Gemini 3.1 Pro Preview, thinking High, grounding và URL context tắt; nhận đủ JSON 2 ca. Cài GitHub App AI Studio giới hạn một repo và ghi nhận giới hạn một chiều.
+- Kiểm tra thực tế và bằng chứng: quote của G01-01 là chuỗi con chính xác của block `b-01`; G01-02 có `sources: []` và 4 placeholder cho số liệu thiếu. Repo không bị ghi: 11 nhánh giữ nguyên SHA, không tag, không sự kiện từ actor Google.
+- Chưa kiểm tra hoặc còn lỗi: **chưa nghiệm thu G01a — đó là việc của Codex ở G01b**. Hai điểm Codex nên xem: `approval_state` không nhất quán giữa hai ca (`pending` với `pending_user_review`); G01-01 dùng hạn `15/11/2023` lệch bối cảnh 2026. App AI Studio không build được, để nguyên theo yêu cầu của anh.
+- Việc nhỏ tiếp theo: G01b — Codex nghiệm thu 2 ca theo sáu tiêu chí trong gói việc.
+- Trạng thái: chờ kiểm tra.
+- Dừng ở đây; chỉ tiếp tục khi anh yêu cầu.

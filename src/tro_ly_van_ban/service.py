@@ -73,13 +73,15 @@ class Service:
         self.lock = threading.RLock()
         with self.db() as db:
             db.executescript('''
-            CREATE TABLE IF NOT EXISTS documents(id TEXT PRIMARY KEY, name TEXT, suffix TEXT, blocks TEXT, warnings TEXT, state TEXT, error TEXT);
+            CREATE TABLE IF NOT EXISTS documents(id TEXT PRIMARY KEY, name TEXT, suffix TEXT, blocks TEXT, warnings TEXT, state TEXT, error TEXT, error_kind TEXT NOT NULL DEFAULT '');
             CREATE TABLE IF NOT EXISTS versions(document_id TEXT, version INTEGER, content TEXT, hash TEXT, mode TEXT, model TEXT, PRIMARY KEY(document_id,version));
             CREATE TABLE IF NOT EXISTS approvals(document_id TEXT, version INTEGER, hash TEXT, action TEXT, reason TEXT, created TEXT DEFAULT CURRENT_TIMESTAMP);
             ''')
 
             if "draft_hash" not in {row[1] for row in db.execute("PRAGMA table_info(versions)")}:
                 db.execute("ALTER TABLE versions ADD COLUMN draft_hash TEXT NOT NULL DEFAULT ''")
+            if "error_kind" not in {row[1] for row in db.execute("PRAGMA table_info(documents)")}:
+                db.execute("ALTER TABLE documents ADD COLUMN error_kind TEXT NOT NULL DEFAULT ''")
 
     @contextlib.contextmanager
     def db(self):
@@ -101,7 +103,7 @@ class Service:
 
     def listing(self):
         with self.db() as db:
-            return [dict(x) for x in db.execute("SELECT id,name,state,error FROM documents ORDER BY rowid DESC")]
+            return [dict(x) for x in db.execute("SELECT id,name,state,error,error_kind FROM documents ORDER BY rowid DESC")]
 
     def get(self, document_id):
         with self.db() as db:
@@ -141,7 +143,7 @@ class Service:
                 freeze(target)
             state = "needs_ocr" if requires_ocr(blocks, warnings) else "ready"
             with self.db() as db:
-                db.execute("INSERT INTO documents VALUES(?,?,?,?,?,?,?)", (digest, Path(name).name[:200], suffix, json.dumps(blocks, ensure_ascii=False), json.dumps(warnings, ensure_ascii=False), state, ""))
+                db.execute("INSERT INTO documents(id,name,suffix,blocks,warnings,state,error,error_kind) VALUES(?,?,?,?,?,?,?,?)", (digest, Path(name).name[:200], suffix, json.dumps(blocks, ensure_ascii=False), json.dumps(warnings, ensure_ascii=False), state, "", ""))
         return digest
 
     def run(self, document_id):
@@ -160,9 +162,27 @@ class Service:
                 result = graph.invoke({"blocks": source["blocks"], "mode": self.mode, "model": self.model})
                 return self.save(document_id, result["result"], provenance=self.mode)
             except Exception as exc:
-                with self.db() as db:
-                    db.execute("UPDATE documents SET state=?,error=? WHERE id=?", ("model_unavailable" if isinstance(exc, ModelUnavailable) else "error", str(exc)[:500], document_id))
+                self.record_failure(document_id, exc)
                 raise
+
+    def record_failure(self, document_id, exc):
+        """Ghi kết quả lần chạy vào error/error_kind, không đụng cột state.
+
+        `state` mô tả phiên bản hiện hành: chờ duyệt, đã duyệt hay đã từ chối.
+        Một lần trích xuất hỏng không tạo ra phiên bản mới và cũng không thu hồi
+        xác nhận của phiên bản đang có, nên nó không được quyền ghi vào cột đó —
+        ghi vào là mất chữ ký đã có mà không ai bấm nút thu hồi.
+
+        Ngoại lệ là tài liệu chưa có phiên bản nào: ở đó không có trạng thái
+        duyệt nào để giữ, lỗi chính là tình trạng hiện tại của tài liệu.
+        """
+        kind = "model_unavailable" if isinstance(exc, ModelUnavailable) else "error"
+        message = str(exc)[:500]
+        with self.lock, self.db() as db:
+            if db.execute("SELECT 1 FROM versions WHERE document_id=? LIMIT 1", (document_id,)).fetchone():
+                db.execute("UPDATE documents SET error=?,error_kind=? WHERE id=?", (message, kind, document_id))
+            else:
+                db.execute("UPDATE documents SET state=?,error=?,error_kind=? WHERE id=?", (kind, message, kind, document_id))
 
     def save(self, document_id, content, expected_version=None, provenance="manual"):
         with self.lock:
@@ -199,7 +219,7 @@ class Service:
             draft_hash = hashlib.sha256(target.read_bytes()).hexdigest()
             with self.db() as db:
                 db.execute("INSERT INTO versions(document_id,version,content,hash,mode,model,draft_hash) VALUES(?,?,?,?,?,?,?)", (document_id, version, encoded, digest, provenance, self.model if provenance == "ollama" else "", draft_hash))
-                db.execute("UPDATE documents SET state='awaiting_review',error='' WHERE id=?", (document_id,))
+                db.execute("UPDATE documents SET state='awaiting_review',error='',error_kind='' WHERE id=?", (document_id,))
             return version
 
     def verify_draft(self, document_id, version, expected_hash):

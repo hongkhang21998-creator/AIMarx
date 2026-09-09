@@ -54,3 +54,14 @@
 - Bộ QA đưa vào repo nguyên assertion, thêm `xfail(strict=True)`: CI xanh, lỗi vẫn nằm trong repo, và khi sửa xong CI sẽ đỏ vì XPASS để buộc gỡ marker.
 - **Nhận phạm vi cho ngày 09/09**: `service.py` và `web.py` cho cả bốn nhóm QA-01…04. Chatbot khác đừng sửa hai file này trước khi đọc PR.
 - Kế hoạch đã chốt với anh Khang: hai PR — P1 (QA-01 + QA-02) rồi P2 (QA-03 + QA-04). Tối nay **không sửa lỗi nào**; chưa chạm Ollama, UI, `data/`.
+
+## 2026-09-09 — claude/qa-p1 — QA-01: lần chạy hỏng không còn xoá trạng thái duyệt
+
+- Nhánh: `claude/qa-p1`, base `66edcf3` trên `claude/qa-baseline`. **PR xếp chồng** trên PR #6; #6 phải merge trước.
+- Đã **tái hiện trước khi sửa**: `approved` → `model_unavailable` sau khi `graph.invoke` ném `ModelUnavailable`, sổ việc mất công việc đã xác nhận.
+- Sửa: tách kết quả lần chạy khỏi trạng thái duyệt. Thêm cột `documents.error_kind` (`''` | `model_unavailable` | `error`) kèm migration `ALTER TABLE` theo đúng khuôn của `draft_hash`. `Service.record_failure()` chỉ ghi `error`/`error_kind`; **chỉ** khi tài liệu chưa có phiên bản nào thì mới ghi vào `state` — ở đó không có trạng thái duyệt nào để giữ. `save()` xoá cả `error` lẫn `error_kind` khi lưu thành công.
+- `web.py`: trang tài liệu tách "Trạng thái" và banner lỗi lần chạy; gộp một dòng thì lỗi trích xuất đọc như thể đã thay thế trạng thái duyệt.
+- Test: gỡ `xfail` của QA-01 trong `docs/qa/2026-09-08/`. Thêm 5 ca vào `tests/test_workflow.py` phủ `approved`/`awaiting_review`/`rejected`, model vắng, output sai schema, DB cũ chưa có cột, và hiển thị web. Đã xác nhận **cả 5 ca đỏ trên `service.py` cũ** — không phải test dán vào cho xanh.
+- Ca `awaiting_review` kiểm tra đúng điểm nặng mà bàn giao nêu: sau lỗi vẫn `review()` duyệt được, không kẹt vĩnh viễn.
+- Kết quả Linux/Python 3.12: **23 passed, 1 skipped, 6 xfailed** (QA-02/03/04 chưa đụng), 4.70 giây.
+- Chưa chạm: QA-02/03/04, Ollama, `data/`, luồng trình duyệt, Windows trực tiếp (để CI chạy).

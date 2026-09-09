@@ -14,6 +14,7 @@ from fastmcp import Client
 from tro_ly_van_ban.domain import Extraction, validate_evidence
 from tro_ly_van_ban.fsguard import freeze, thaw
 from tro_ly_van_ban.service import Service
+import tro_ly_van_ban.service as mod
 from tro_ly_van_ban.model import ModelUnavailable
 from tro_ly_van_ban.mcp_server import create_mcp
 from tro_ly_van_ban.web import create_app
@@ -74,6 +75,96 @@ def test_missing_model_persisted(service, monkeypatch):
     with pytest.raises(ModelUnavailable):
         service.run(doc_id)
     assert Service(service.root).get(doc_id)["state"] == "model_unavailable"
+
+
+def test_failed_run_keeps_state_of_existing_version(service, monkeypatch):
+    """Lần chạy hỏng ghi lỗi, không rút lại trạng thái của phiên bản đang có.
+
+    Ba trạng thái đều phải giữ: đã duyệt thì sổ việc còn nhận, chờ duyệt thì
+    vẫn duyệt được, đã từ chối thì không được lặng lẽ mở lại.
+    """
+    def fail(*args, **kwargs):
+        raise ModelUnavailable("synthetic offline")
+
+    for action in ("approved", "rejected", None):
+        service_root = service.root / action if action else service.root / "pending"
+        local = Service(service_root, mode="demo")
+        doc_id = sample(local)
+        local.save(doc_id, content())
+        digest = local.get(doc_id)["latest"]["hash"]
+        if action:
+            local.review(doc_id, 1, digest, action, "đã đối chiếu")
+        expected = action or "awaiting_review"
+        assert local.get(doc_id)["state"] == expected
+        monkeypatch.setattr(mod.graph, "invoke", fail)
+        with pytest.raises(ModelUnavailable):
+            local.run(doc_id)
+        monkeypatch.undo()
+        after = Service(service_root, mode="demo").get(doc_id)
+        assert after["state"] == expected
+        assert after["latest"]["version"] == 1
+        assert len(after["approvals"]) == (1 if action else 0)
+        assert after["error_kind"] == "model_unavailable"
+        assert "synthetic offline" in after["error"]
+        if not action:
+            # Ban cho duyet bi loi van phai duyet duoc: review() doi state
+            # awaiting_review, ghi de state la khoa cung phien ban lai vinh vien.
+            local.review(doc_id, 1, digest, "approved", "vẫn duyệt được sau lỗi")
+            assert local.get(doc_id)["state"] == "approved"
+
+
+def test_failed_run_on_bad_schema_keeps_approval_and_clears_after_success(service, monkeypatch):
+    doc_id = sample(service)
+    service.save(doc_id, content())
+    service.review(doc_id, 1, service.get(doc_id)["latest"]["hash"], "approved", "")
+    monkeypatch.setattr(mod.graph, "invoke", lambda *a, **k: {"result": {"tasks": "khong phai danh sach"}})
+    with pytest.raises(Exception):
+        service.run(doc_id)
+    doc = service.get(doc_id)
+    assert doc["state"] == "approved"
+    assert doc["error_kind"] == "error"
+    assert service.tasks()[0]["state"] == "approved"
+    # Lan luu thanh cong xoa dau vet loi cu, khong de banner treo lai mai.
+    service.save(doc_id, content(), expected_version=1)
+    doc = service.get(doc_id)
+    assert (doc["state"], doc["error"], doc["error_kind"]) == ("awaiting_review", "", "")
+
+
+def test_failed_run_without_version_still_reports_model_error(service, monkeypatch):
+    doc_id = sample(service)
+    monkeypatch.setattr(mod.graph, "invoke", lambda *a, **k: (_ for _ in ()).throw(ModelUnavailable("offline")))
+    with pytest.raises(ModelUnavailable):
+        service.run(doc_id)
+    doc = Service(service.root, mode="demo").get(doc_id)
+    assert doc["state"] == "model_unavailable"
+    assert doc["error_kind"] == "model_unavailable"
+
+
+def test_error_kind_column_is_added_to_older_database(tmp_path):
+    import sqlite3
+    root = tmp_path / "cu"
+    root.mkdir()
+    with sqlite3.connect(root / "state.sqlite3") as conn:
+        conn.executescript(
+            "CREATE TABLE documents(id TEXT PRIMARY KEY, name TEXT, suffix TEXT, blocks TEXT, warnings TEXT, state TEXT, error TEXT);"
+            "INSERT INTO documents VALUES('x','cu.txt','.txt','[]','[]','approved','');"
+        )
+    upgraded = Service(root, mode="demo")
+    assert upgraded.listing()[0]["error_kind"] == ""
+    assert upgraded.listing()[0]["state"] == "approved"
+
+
+def test_web_shows_run_error_without_replacing_state(service, monkeypatch):
+    doc_id = sample(service)
+    service.save(doc_id, content())
+    service.review(doc_id, 1, service.get(doc_id)["latest"]["hash"], "approved", "")
+    monkeypatch.setattr(mod.graph, "invoke", lambda *a, **k: (_ for _ in ()).throw(ModelUnavailable("offline")))
+    client = TestClient(create_app(service), base_url="http://127.0.0.1")
+    token = re.search('name="csrf" value="([^"]+)"', client.get("/").text).group(1)
+    client.post(f"/documents/{doc_id}/run", data={"csrf": token})
+    page = client.get(f"/documents/{doc_id}").text
+    assert "Trạng thái: approved" in page
+    assert "Model chưa sẵn sàng" in page
 
 
 def test_demo_and_scan(service):

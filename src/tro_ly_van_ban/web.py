@@ -76,7 +76,13 @@ def create_app(service=None):
     @app.get("/documents/{doc_id}")
     def document(doc_id: str):
         doc = service.get(doc_id)
-        body = f'<h2>{esc(doc["name"])}</h2><p>Trạng thái: {esc(doc["state"])}. {esc(doc["error"])}</p><p>{esc("; ".join(doc["warnings"]))}</p>'
+        body = f'<h2>{esc(doc["name"])}</h2><p>Trạng thái: {esc(doc["state"])}</p>'
+        # Trang thai duyet va ket qua lan chay la hai chuyen khac nhau; gop mot dong
+        # thi loi trich xuat doc nhu thu da thay the trang thai duyet.
+        if doc["error"]:
+            nhan = "Model chưa sẵn sàng" if doc["error_kind"] == "model_unavailable" else "Lần xử lý gần nhất lỗi"
+            body += f'<p class="warn"><b>{nhan}:</b> {esc(doc["error"])} — trạng thái duyệt ở trên giữ nguyên.</p>'
+        body += f'<p>{esc("; ".join(doc["warnings"]))}</p>'
         body += f'<form action="/documents/{doc_id}/run" method="post">{hidden}<button>Trích xuất / thử lại (tạo phiên bản mới)</button></form>'
         if doc["state"] != "needs_ocr":
             current = doc["latest"]["version"] if doc["latest"] else 0

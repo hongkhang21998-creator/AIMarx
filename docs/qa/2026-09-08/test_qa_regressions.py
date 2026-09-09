@@ -31,7 +31,8 @@ def client(s):
     token = re.search('name="csrf" value="([^"]+)"', c.get('/').text).group(1)
     return c,token
 
-@pytest.mark.xfail(strict=True, reason="QA-01: run() lỗi ghi đè documents.state, xóa mất trạng thái đã duyệt")
+# QA-01 đã sửa: run() ghi lỗi vào error/error_kind, không còn đụng documents.state.
+# Độ phủ mở rộng (awaiting_review, rejected, sai schema, DB cũ) nằm ở tests/test_workflow.py.
 def test_failed_rerun_preserves_approved_version(setup, monkeypatch):
     s,d=setup
     v=s.get(d)['latest']

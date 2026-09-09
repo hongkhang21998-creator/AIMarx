@@ -4,6 +4,7 @@ import os
 import secrets
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse, JSONResponse
+from starlette.concurrency import run_in_threadpool
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from .service import Service
 from .parser import MAX_BYTES
@@ -70,7 +71,7 @@ def create_app(service=None):
         if file is None or not hasattr(file, "read"):
             raise ValueError("Chưa chọn file")
         data = await file.read(MAX_BYTES + 1)
-        doc_id = service.ingest(file.filename or "file", data)
+        doc_id = await run_in_threadpool(service.ingest, file.filename or "file", data)
         return RedirectResponse(f"/documents/{doc_id}", 303)
 
     @app.get("/documents/{doc_id}")
@@ -124,7 +125,6 @@ def create_app(service=None):
     async def run(doc_id: str, request: Request):
         await checked_form(request)
         try:
-            from starlette.concurrency import run_in_threadpool
             await run_in_threadpool(service.run, doc_id)
         except Exception:
             pass  # service persists a bounded error message displayed on the document page
@@ -133,18 +133,24 @@ def create_app(service=None):
     @app.post("/documents/{doc_id}/manual")
     async def manual(doc_id: str, request: Request):
         form = await checked_form(request)
-        service.save(doc_id, {}, int(str(form["version"])), provenance="manual")
+        await run_in_threadpool(lambda: service.save(doc_id, {}, int(str(form["version"])), provenance="manual"))
         return RedirectResponse(f"/documents/{doc_id}", 303)
 
     @app.post("/documents/{doc_id}/save")
     async def save(doc_id: str, request: Request):
         form = await checked_form(request)
-        service.save(doc_id, json.loads(str(form["content"])), int(str(form["version"])))
+        await run_in_threadpool(lambda: service.save(doc_id, json.loads(str(form["content"])), int(str(form["version"]))))
         return RedirectResponse(f"/documents/{doc_id}", 303)
 
     @app.post("/documents/{doc_id}/edit")
     async def edit(doc_id: str, request: Request):
         form = await checked_form(request)
+        await run_in_threadpool(apply_edit, doc_id, form)
+        return RedirectResponse(f"/documents/{doc_id}", 303)
+
+    def apply_edit(doc_id, form):
+        # Ca cum get + dung noi dung + save nam trong mot lan sang threadpool:
+        # tach ra thi phan doc DB lai roi nguoc ve event loop.
         doc = service.get(doc_id)
         sources = {b["id"]: b["text"] for b in doc["blocks"]}
         def value(key):
@@ -164,13 +170,12 @@ def create_app(service=None):
             task = value(f"request_{i}")
             if task:
                 content["tasks"].append({"request": task, "deadline": value(f"deadline_{i}")})
-        service.save(doc_id, content, int(str(form["version"])))
-        return RedirectResponse(f"/documents/{doc_id}", 303)
+        return service.save(doc_id, content, int(str(form["version"])))
 
     @app.post("/documents/{doc_id}/review")
     async def review(doc_id: str, request: Request):
         form = await checked_form(request)
-        service.review(doc_id, int(str(form["version"])), str(form["hash"]), str(form["action"]), str(form.get("reason", "")))
+        await run_in_threadpool(lambda: service.review(doc_id, int(str(form["version"])), str(form["hash"]), str(form["action"]), str(form.get("reason", ""))))
         return RedirectResponse(f"/documents/{doc_id}", 303)
 
     @app.get("/documents/{doc_id}/draft/{version}")

@@ -4,6 +4,8 @@ import os
 import re
 import subprocess
 import sys
+import threading
+import time
 from io import BytesIO
 import httpx
 import pytest
@@ -165,6 +167,111 @@ def test_web_shows_run_error_without_replacing_state(service, monkeypatch):
     page = client.get(f"/documents/{doc_id}").text
     assert "Trạng thái: approved" in page
     assert "Model chưa sẵn sàng" in page
+
+
+# Bao lau lock bi giu trong luc do phep do chay. Nguong tre cua event loop dat
+# thap hon nhieu lan de ket qua khong phu thuoc toc do may chay test.
+LOCK_HOLD = 1.0
+LOOP_LAG_LIMIT = 0.5
+
+
+def _heartbeat_lag(service, app, token, method, path, payload):
+    """Đo độ trễ event loop khi một request ghi phải chờ lock của service.
+
+    Cố ý **không** mock model: chỉ cần giữ `service.lock` là tái hiện đủ, nên
+    phép đo không dính vào tốc độ inference. Barrier là `threading.Event`, mọi
+    lần chờ đều có timeout, không ca nào dựa vào `sleep` để đồng bộ.
+    """
+    async def exercise():
+        held = threading.Event()
+        def hog():
+            with service.lock:
+                held.set()
+                time.sleep(LOCK_HOLD)
+        worker = threading.Thread(target=hog, daemon=True)
+        worker.start()
+        try:
+            assert await asyncio.to_thread(held.wait, 5), "không giữ được lock của service"
+            transport = httpx.ASGITransport(app=app)
+            async with httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1") as client:
+                sending = asyncio.create_task(client.request(method, path, **payload))
+                async def heartbeat():
+                    start = time.monotonic()
+                    await asyncio.sleep(0.05)
+                    return time.monotonic() - start
+                lag = await asyncio.wait_for(heartbeat(), LOCK_HOLD + 5)
+                response = await asyncio.wait_for(sending, LOCK_HOLD + 5)
+            return lag, response
+        finally:
+            worker.join(5)
+    return asyncio.run(exercise())
+
+
+def _fresh(tmp_path, name):
+    service = Service(tmp_path / name, mode="demo")
+    doc_id = sample(service)
+    service.save(doc_id, content())
+    app = create_app(service)
+    token = re.search('name="csrf" value="([^"]+)"', TestClient(app, base_url="http://127.0.0.1").get("/").text).group(1)
+    return service, doc_id, app, token
+
+
+@pytest.mark.parametrize("route", ["manual", "save", "edit", "review"])
+def test_write_routes_wait_for_lock_off_the_event_loop(tmp_path, route):
+    """Route ghi phải chờ lock trong threadpool, không phải trên event loop.
+
+    Gọi thẳng service trong `async def` thì suốt lúc inference chạy, mọi
+    coroutine HTTP khác đứng im — giao diện treo chứ không chỉ chậm.
+    """
+    service, doc_id, app, token = _fresh(tmp_path, route)
+    latest = service.get(doc_id)["latest"]
+    form = {
+        "manual": {"version": "1"},
+        "save": {"version": "1", "content": json.dumps(content())},
+        "edit": {"version": "1", "number": "12/ABC", "number_block": "b1", "request_0": "Gửi báo cáo", "request_0_block": "b2"},
+        "review": {"version": "1", "hash": latest["hash"], "action": "rejected", "reason": "thử"},
+    }[route]
+    lag, response = _heartbeat_lag(service, app, token, "POST", f"/documents/{doc_id}/{route}", {"data": {"csrf": token, **form}})
+    assert lag < LOOP_LAG_LIMIT, f"{route}: event loop trễ {lag:.2f}s trong lúc lock bị giữ {LOCK_HOLD}s"
+    assert response.status_code == 303, (route, response.status_code)
+
+
+def test_upload_parses_off_the_event_loop(tmp_path):
+    """Nhập tệp cũng phải rời event loop: parse PDF treo UI dù không có model nào."""
+    service, _, app, token = _fresh(tmp_path, "upload")
+    payload = {"data": {"csrf": token}, "files": {"file": ("khac.txt", b"So: 34/XYZ\nGui cong van", "text/plain")}}
+    lag, response = _heartbeat_lag(service, app, token, "POST", "/upload", payload)
+    assert lag < LOOP_LAG_LIMIT, f"upload: event loop trễ {lag:.2f}s trong lúc lock bị giữ {LOCK_HOLD}s"
+    assert response.status_code == 303
+    assert len(service.listing()) == 2
+
+
+def test_reads_stay_responsive_while_a_write_holds_the_lock(tmp_path):
+    """Trong lúc ghi đang đợi lock, HTTP khác vẫn phải trả lời."""
+    service, doc_id, app, token = _fresh(tmp_path, "reads")
+    async def exercise():
+        held = threading.Event()
+        def hog():
+            with service.lock:
+                held.set()
+                time.sleep(LOCK_HOLD)
+        worker = threading.Thread(target=hog, daemon=True)
+        worker.start()
+        try:
+            assert await asyncio.to_thread(held.wait, 5)
+            transport = httpx.ASGITransport(app=app)
+            async with httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1") as client:
+                writing = asyncio.create_task(client.post(f"/documents/{doc_id}/manual", data={"csrf": token, "version": "1"}))
+                start = time.monotonic()
+                page = await asyncio.wait_for(client.get("/tasks"), LOCK_HOLD + 5)
+                elapsed = time.monotonic() - start
+                await asyncio.wait_for(writing, LOCK_HOLD + 5)
+            return elapsed, page
+        finally:
+            worker.join(5)
+    elapsed, page = asyncio.run(exercise())
+    assert page.status_code == 200
+    assert elapsed < LOOP_LAG_LIMIT, f"GET /tasks mất {elapsed:.2f}s trong lúc một lệnh ghi đang đợi lock"
 
 
 def test_demo_and_scan(service):

@@ -65,3 +65,19 @@
 - Ca `awaiting_review` kiểm tra đúng điểm nặng mà bàn giao nêu: sau lỗi vẫn `review()` duyệt được, không kẹt vĩnh viễn.
 - Kết quả Linux/Python 3.12: **23 passed, 1 skipped, 6 xfailed** (QA-02/03/04 chưa đụng), 4.70 giây.
 - Chưa chạm: QA-02/03/04, Ollama, `data/`, luồng trình duyệt, Windows trực tiếp (để CI chạy).
+
+## 2026-09-09 — claude/qa-p1 — QA-02: route ghi rời event loop
+
+- Bàn giao nói đúng: **năm** route async gọi thẳng service trên event loop, chỉ `/run` dùng threadpool. `/upload` parse PDF ngay trên loop nên treo UI cả khi không có model nào tham gia.
+- Sửa: `run_in_threadpool` cho `/upload`, `/manual`, `/save`, `/edit`, `/review`. Import chuyển lên đầu module — để nó nằm trong thân `/run` chính là lý do bốn route kia không có gì nhắc rằng chúng đang chạy sai chỗ. `/edit` tách thành `apply_edit()` để cả cụm `get` + dựng nội dung + `save` đi trong **một** lần sang threadpool.
+- **Không bỏ lock.** `Service.lock` giữ nguyên: nó là thứ đang bảo đảm kiểm soát phiên bản và thứ tự ghi. Việc cần sửa là ai *chờ* nó, không phải có nên có nó không.
+- Đo lại đúng kịch bản của Codex (inference giả lập 1,2 giây, heartbeat 50 ms): **1,26 s → 0,051 s**.
+- Test: gỡ `xfail` QA-02. Thêm 6 ca vào `tests/test_workflow.py` — bốn route ghi (parametrize), `/upload`, và một ca xác nhận `GET /tasks` vẫn trả lời trong lúc một lệnh ghi đang đợi lock. Barrier là `threading.Event`, mọi lần chờ có timeout, không ca nào dựa vào `sleep` để đồng bộ. Các ca **giữ lock trực tiếp thay vì mock model**, nên phép đo không dính vào tốc độ máy chạy test. Chạy lặp 3 lần: ổn định.
+- Đã xác nhận **cả 6 ca đỏ trên `web.py` cũ**.
+- Diễn tập tổng hợp nhập → sửa có dẫn nguồn → duyệt → lỗi AI → khôi phục: trạng thái `approved` giữ nguyên qua lỗi, sổ việc không mất việc, banner lỗi hiện đúng, lần chạy thành công sau đó tạo v3 và xoá dấu vết lỗi.
+
+### Giới hạn còn lại, không nằm trong phạm vi PR này
+
+- Lock là **toàn dịch vụ**, không theo từng tài liệu: một lần inference chậm vẫn xếp hàng mọi lệnh ghi của **mọi** tài liệu. Event loop rảnh nên đọc và giao diện còn đáp ứng — đó là điều QA-02 yêu cầu — nhưng ghi thì vẫn chờ. Tách lock theo tài liệu là việc riêng, cần cân nhắc cùng QA-03.
+- Threadpool của anyio mặc định 40 luồng. Nhiều lệnh ghi cùng xếp hàng sau một inference dài có thể chạm trần; với một dịch vụ chạy local một người dùng thì chưa phải vấn đề, nhưng đây là trần thật, không phải vô hạn.
+- QA-03 và QA-04 chưa đụng, vẫn `xfail(strict=True)` trong `docs/qa/2026-09-08/`.

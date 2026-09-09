@@ -68,7 +68,8 @@ def test_invalid_json_has_error_http_status(setup):
     response=c.post(f'/documents/{d}/save',data={'csrf':token,'version':'1','content':'{'},follow_redirects=False)
     assert 400<=response.status_code<500, (response.status_code,response.text[-200:])
 
-@pytest.mark.xfail(strict=True, reason="QA-02: route ghi async gọi thẳng service nên chặn event loop suốt lúc inference")
+# QA-02 đã sửa: cả năm route ghi đi qua run_in_threadpool.
+# Độ phủ từng route (kể cả /upload và /edit) nằm ở tests/test_workflow.py.
 def test_concurrent_save_does_not_block_event_loop(setup, monkeypatch):
     import asyncio
     import threading

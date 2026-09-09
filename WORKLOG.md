@@ -81,3 +81,36 @@
 - Lock là **toàn dịch vụ**, không theo từng tài liệu: một lần inference chậm vẫn xếp hàng mọi lệnh ghi của **mọi** tài liệu. Event loop rảnh nên đọc và giao diện còn đáp ứng — đó là điều QA-02 yêu cầu — nhưng ghi thì vẫn chờ. Tách lock theo tài liệu là việc riêng, cần cân nhắc cùng QA-03.
 - Threadpool của anyio mặc định 40 luồng. Nhiều lệnh ghi cùng xếp hàng sau một inference dài có thể chạm trần; với một dịch vụ chạy local một người dùng thì chưa phải vấn đề, nhưng đây là trần thật, không phải vô hạn.
 - QA-03 và QA-04 chưa đụng, vẫn `xfail(strict=True)` trong `docs/qa/2026-09-08/`.
+
+## 2026-09-09 — claude/qa-p2 — QA-03 + QA-04: chốt phiên bản trước khi gọi model, và mã HTTP đúng nghĩa
+
+- Nhánh: `claude/qa-p2`, base `d14fb5c` trên `claude/qa-p1`. **PR xếp chồng** trên PR #7 (và #7 trên #6). Thứ tự merge: #6 → #7 → PR này.
+
+### QA-03
+
+- `Service.run()` nhận thêm `expected_version`, kiểm **trước khi gọi model** và trong cùng một lần giữ lock với lần ghi. Form `/run` nay mang theo phiên bản đang hiển thị.
+- **Chính sách anh Khang đã chốt**: `/run` thiếu `version` thì **từ chối 400**, không đoán là bản mới nhất. Biểu mẫu luôn gửi kèm.
+- `expected_version` vẫn tuỳ chọn ở tầng service: MCP và lệnh nội bộ không đi qua biểu mẫu.
+
+### QA-04
+
+- Hai lớp lỗi nghiệp vụ mới trong `service.py`: `NotFound` và `Conflict`, đều kế thừa `ValueError` nên mọi `pytest.raises(ValueError)` và mọi nơi bắt `ValueError` sẵn có vẫn chạy đúng. Phân loại đặt ở tầng service vì chỉ ở đó mới biết "không tìm thấy" khác "phiên bản đã đổi" chỗ nào.
+- `bad_value()` ánh xạ `NotFound`→404, `Conflict`→409, còn lại→400. Mặc định 400 chứ không 200: vào được handler này nghĩa là một ràng buộc nghiệp vụ từ chối yêu cầu.
+- **Không nuốt lỗi lập trình**: `bad_value` vẫn chỉ bắt `ValueError`. `AttributeError`/`TypeError` nổi lên thành 500 như phải thế, có test riêng chốt điều này. `/run` cũng thu hẹp từ `except Exception` xuống `except (ValueError, ModelUnavailable)`, và **re-raise** `NotFound`/`Conflict` — lỗi của yêu cầu thì phải trả 404/409 cho tab cũ biết, không phải một cái 303 im lặng.
+- `required()` / `required_int()` thay cho `form["x"]`: `KeyError` là lỗi lập trình nên khung nâng thành 500 — đổ lỗi cho máy chủ vì một biểu mẫu gửi thiếu.
+- `json.JSONDecodeError` được bọc lại thành thông báo tiếng Việt kèm dòng/cột. **Trang lỗi giữ lại nội dung người dùng vừa gõ** trong một textarea để dán về, qua `request.state` (nằm trong scope nên exception handler đọc được).
+- Phát sinh trong lúc viết test, đã sửa cùng nhánh: `review()` trên tài liệu **không tồn tại** trả 409 "Phiên bản cũ hoặc đã duyệt" — sai cả mã lẫn sự thật. Nay kiểm tài liệu tồn tại trước và trả `NotFound`.
+
+### Kiểm thử
+
+- **Đã gỡ hết bảy `xfail`** của bộ QA `docs/qa/2026-09-08/`; từ đây nó là test hồi quy bình thường, phải xanh. Không xoá hay nới assertion nào. Một sửa đổi duy nhất ở bước **đặt** (không phải assertion): ca QA-02 nay gửi kèm `version` khi POST `/run`, vì chính sách QA-03 bắt buộc — nếu không, ca đó dừng ở 400 và không còn đo được thứ nó sinh ra là độ trễ event loop.
+- Thêm 25 ca vào `tests/test_workflow.py`: 5 cho QA-03 (tab cũ bị chặn **trước khi model được gọi**, tab hiện hành vẫn chạy, form mang version, thiếu version bị từ chối, service vẫn nhận `expected_version=None`) và 20 cho QA-04 (14 tổ hợp lỗi biểu mẫu, 4 ca 404, 3 ca 409, trang lỗi tiếng Việt giữ dữ liệu, lỗi lập trình vẫn 500, lỗi model vẫn 303).
+- Mọi ca lỗi đều kiểm thêm **không có phiên bản hay bản duyệt mới** được tạo ra sau lỗi.
+- Xác nhận đỏ trên mã cũ: hoàn nguyên `web.py` → 25/30 ca mới đỏ; bỏ riêng hàng rào `expected_version` → 3 ca đỏ, gồm cả ca QA-03 gốc của Codex.
+- Kết quả: **64 passed, 1 skipped**, 12,24 giây. `pip check` sạch.
+- Ma trận mã trạng thái đã đối chiếu tay: 303 thành công · 400 thiếu/sai kiểu/JSON hỏng/sai schema · 409 tab cũ (`/run` và `/save`) · 404 tài liệu lạ (POST lẫn GET).
+
+### Chưa làm
+
+- Ollama và inference thật; luồng trình duyệt; Windows trực tiếp (để CI). OCR, watcher, Calendar, systemd không nằm trong cam kết hôm nay.
+- Lock vẫn là toàn dịch vụ, không theo từng tài liệu — giới hạn đã ghi ở PR #7, không đổi ở PR này.

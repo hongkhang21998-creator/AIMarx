@@ -1,14 +1,18 @@
 """Bộ tái hiện QA ngày 08/09/2026 — bốn nhóm lỗi giao ở Issue #5.
 
-Cả bảy ca ĐANG ĐỎ trên main tại `822ce30`. Chúng được đánh `xfail(strict=True)`
+Cả bảy ca ĐANG ĐỎ trên main tại `822ce30`, và đã được đánh `xfail(strict=True)`
 để CI xanh mà lỗi vẫn nằm trong repo chứ không nằm trong trí nhớ ai đó.
 
-`strict=True` là chủ ý: khi lỗi được sửa, ca tương ứng chuyển thành XPASS và
-**làm đỏ CI**. Người sửa buộc phải quay lại gỡ marker, nên không có đường nào
-để một bản sửa lặng lẽ trôi qua mà không ai cập nhật trạng thái ở đây.
+`strict=True` làm đúng việc của nó: mỗi lần một nhóm được sửa, ca tương ứng
+chuyển thành XPASS và làm đỏ CI, buộc người sửa quay lại gỡ marker. **Cả bảy
+marker nay đã gỡ hết** — QA-01/02 ở PR #7, QA-03/04 ở PR này — nên từ đây bộ
+này là test hồi quy bình thường, phải xanh.
 
 Không xóa hay nới assertion để làm xanh. Nếu một assertion sai so với thiết kế
-đã chốt thì sửa assertion kèm lý do trong PR, không phải xóa.
+đã chốt thì sửa assertion kèm lý do trong PR, không phải xóa. Một thay đổi duy
+nhất thuộc loại đó: ca QA-02 nay gửi kèm `version` khi POST /run, vì QA-03 chốt
+chính sách /run bắt buộc có version. Đó là bước đặt, không phải assertion — sửa
+để ca vẫn đo đúng thứ nó sinh ra là độ trễ event loop, chứ không dừng ở 400.
 """
 import json
 import re
@@ -45,7 +49,7 @@ def test_failed_rerun_preserves_approved_version(setup, monkeypatch):
     assert len(doc['approvals'])==1
     assert doc['state']=='approved', f"unchanged v1 now {doc['state']}; tasks={s.tasks()}"
 
-@pytest.mark.xfail(strict=True, reason="QA-03: /run bỏ qua version nên tab cũ vẫn thay được phiên bản hiện hành")
+# QA-03 đã sửa: Service.run() nhận expected_version và chốt nó trước khi gọi model.
 def test_stale_run_cannot_supersede_newer_version(setup):
     s,d=setup
     c,token=client(s)
@@ -53,7 +57,7 @@ def test_stale_run_cannot_supersede_newer_version(setup):
     response=c.post(f'/documents/{d}/run',data={'csrf':token,'version':'1'},follow_redirects=False)
     assert s.get(d)['latest']['version']==2, f"stale run returned {response.status_code}, created v3"
 
-@pytest.mark.xfail(strict=True, reason="QA-04: thiếu field biểu mẫu ném KeyError thành HTTP 500")
+# QA-04 đã sửa: field bắt buộc đọc qua required()/required_int(), thiếu thì 400.
 @pytest.mark.parametrize('route,data',[('manual',{}),('save',{'version':'1'}),('review',{'version':'1'})])
 def test_missing_form_fields_are_client_errors(setup,route,data):
     s,d=setup
@@ -61,7 +65,7 @@ def test_missing_form_fields_are_client_errors(setup,route,data):
     response=c.post(f'/documents/{d}/{route}',data={'csrf':token,**data},follow_redirects=False)
     assert 400<=response.status_code<500, (route,response.status_code,response.text[:100])
 
-@pytest.mark.xfail(strict=True, reason="QA-04: JSON hỏng trả trang lỗi nhưng HTTP vẫn 200")
+# QA-04 đã sửa: trang lỗi mang đúng mã trạng thái thay vì luôn 200.
 def test_invalid_json_has_error_http_status(setup):
     s,d=setup
     c,token=client(s)
@@ -86,7 +90,7 @@ def test_concurrent_save_does_not_block_event_loop(setup, monkeypatch):
     monkeypatch.setattr(mod.graph,'invoke',slow)
     async def exercise():
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),base_url='http://127.0.0.1') as ac:
-            running=asyncio.create_task(ac.post(f'/documents/{d}/run',data={'csrf':token}))
+            running=asyncio.create_task(ac.post(f'/documents/{d}/run',data={'csrf':token,'version':'1'}))
             assert await asyncio.to_thread(entered.wait,5)
             async def heartbeat():
                 start=time.monotonic()

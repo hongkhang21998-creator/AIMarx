@@ -39,6 +39,23 @@ Ghi nhận thay đổi so với câu "Gemini chưa có kết nối repo" ở b�
 
 Kết luận cho quy trình: **không đổi phân công**. Gemini vẫn không ghi vào repo; đầu ra vẫn do anh đưa về để Codex kiểm tra.
 
+## Phân công code tuần 07–13/09/2026
+
+Chỉ đạo mới nhất của anh Khang ngày 09/09: **Gemini làm phần code nhỏ, Claude vẫn giữ lõi**. Chỉ đạo này thay thế lựa chọn chuyển toàn bộ code sang Gemini trước đó.
+
+- **Codex:** đặc tả, giao phạm vi file, tiêu chí nghiệm thu, kiểm thử đầu ra và phối hợp tích hợp.
+- **Gemini qua AI Studio:** hàm thuần, công cụ kiểm dữ liệu giả lập, unit test nhỏ hoặc phần hiển thị đã tách riêng và có hợp đồng rõ. Mỗi gói một hành vi, ưu tiên 1–2 file; không tự mở rộng.
+- **Claude:** service và state machine, DB/migration, lock/concurrency, job/outbox, adapter Swarm/API, quyền truy cập, phiên bản, phê duyệt và tích hợp mã lõi.
+- **Anh Khang:** nghiệm thu nghiệp vụ và merge PR.
+
+Trước mỗi gói Gemini, Codex cung cấp: mục tiêu; base SHA và đúng file cần đọc/được sửa; chữ ký hàm/schema; ví dụ đầu vào/đầu ra; ca đạt/trượt; lệnh kiểm tra; điểm dừng. Nếu phần UI/test nằm trong file Claude đang giữ thì chưa giao, phải tách phạm vi trước. Không để Gemini đổi Python/FastAPI sang Vite/TypeScript.
+
+Ứng viên gói code đầu sau khi sửa và nghiệm thu lại G01a: một công cụ Python kiểm JSON fixture và quote/value, kèm test nhỏ dùng thư viện chuẩn, không truy cập DB/model/mạng. Đây là đề xuất chưa bắt đầu; Codex phải chốt hợp đồng riêng trước khi Gemini viết. Công cụ chỉ kiểm cấu trúc/nguồn, không thay kiểm ngữ nghĩa của tester.
+
+Giữ nhịp **mỗi buổi một đầu việc nhỏ cho cả dự án**. Việc trước mắt vẫn là sửa hai ca G01a; không vừa sửa ca vừa mở gói code mới. Đầu ra Gemini phải được chạy kiểm tra thực tế trước khi đưa vào PR; không coi lời “test pass” trong chat là bằng chứng.
+
+Nhật ký cập nhật phân công: chỉ sửa TIEN_DO.md trong PR #15 đang mở để không tạo thêm PR tài liệu trùng. Chưa giao tác vụ chạy cho Gemini/Claude, chưa sửa mã. Phân công này áp dụng trong tuần nêu trên; tuần sau xem lại cùng anh.
+
 ## Bảng tiến độ
 
 Trạng thái “đã chuẩn bị” không có nghĩa đã triển khai hoặc nghiệm thu.

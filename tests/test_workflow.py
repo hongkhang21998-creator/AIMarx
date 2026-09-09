@@ -17,7 +17,7 @@ from tro_ly_van_ban.domain import Extraction, validate_evidence
 from tro_ly_van_ban.fsguard import freeze, thaw
 from tro_ly_van_ban.service import Conflict, NotFound, Service
 import tro_ly_van_ban.service as mod
-from tro_ly_van_ban.model import ModelUnavailable
+from tro_ly_van_ban.model import ModelUnavailable, grammar_schema
 from tro_ly_van_ban.mcp_server import create_mcp
 from tro_ly_van_ban.web import create_app
 
@@ -439,6 +439,36 @@ def test_run_failure_still_redirects_and_shows_on_the_document_page(service, mon
     response = client.post(f"/documents/{doc_id}/run", data={"csrf": csrf, "version": "1"}, follow_redirects=False)
     assert response.status_code == 303
     assert "Model chưa sẵn sàng" in client.get(f"/documents/{doc_id}").text
+
+
+def test_grammar_schema_drops_lengths_without_weakening_validation():
+    """Khung sinh bỏ ràng buộc độ dài; tầng validate thì không được bỏ.
+
+    llama-server 0.33.3 không dựng nổi grammar khi maxLength đúng bằng 2000 —
+    giá trị EvidenceValue.value đang khai — nên mọi lần gọi model thật trả 400
+    "failed to parse grammar". Bỏ khỏi khung sinh là cách né lỗi thượng nguồn
+    mà không đụng vào ràng buộc thật; ca này chốt rằng ràng buộc thật còn đó.
+    """
+    original = Extraction.model_json_schema()
+    trimmed = grammar_schema(original)
+
+    def lengths(node):
+        if isinstance(node, dict):
+            return ({k for k in node if k in {"minLength", "maxLength"}}
+                    | set().union(*(lengths(v) for v in node.values())) if node else set())
+        if isinstance(node, list):
+            return set().union(*(lengths(v) for v in node)) if node else set()
+        return set()
+
+    assert lengths(trimmed) == set()
+    assert lengths(original) == {"minLength", "maxLength"}, "không được sửa schema gốc tại chỗ"
+    assert original["$defs"]["EvidenceValue"]["properties"]["value"]["maxLength"] == 2000
+    # Cua kiem that van dong: value qua dai phai bi tu choi nhu truoc.
+    quote = "x" * 2001
+    with pytest.raises(ValueError):
+        Extraction.model_validate({"tasks": [{"request": {"value": quote, "block_id": "b1", "quote": quote}}]})
+    ok = Extraction.model_validate({"tasks": [{"request": {"value": "a", "block_id": "b1", "quote": "a"}}]})
+    assert ok.tasks[0].request.value == "a"
 
 
 def test_demo_and_scan(service):

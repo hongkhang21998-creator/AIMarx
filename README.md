@@ -21,7 +21,7 @@ Dùng model thật sau khi đã cài Ollama và tải model phù hợp RAM:
 TLVB_MODE=ollama TLVB_MODEL=qwen3:0.6b scripts/run-local.sh
 ```
 
-Tên model là cấu hình, không phải khuyến nghị chất lượng nghiệp vụ. Model nhỏ cần đánh giá riêng tiếng Việt. Khi không có Ollama/model, tài liệu ghi trạng thái `model_unavailable`; người dùng có thể thử lại. Không suy diễn hạn từ “khẩn” hay số ngày tương đối, không chuẩn hóa ngày tự động.
+Tên model là cấu hình, không phải khuyến nghị chất lượng nghiệp vụ. Model nhỏ cần đánh giá riêng tiếng Việt. Khi không có Ollama/model, lỗi được ghi vào `error`/`error_kind` của tài liệu; người dùng có thể thử lại. Tài liệu **chưa có phiên bản nào** thì trạng thái chuyển thành `model_unavailable`. Tài liệu **đã có phiên bản** thì giữ nguyên trạng thái duyệt (`awaiting_review`/`approved`/`rejected`): một lần trích xuất hỏng không tạo phiên bản mới nên cũng không được thu hồi xác nhận đã có. Chỉ lần chạy thành công mới tạo bản chờ duyệt mới. Không suy diễn hạn từ “khẩn” hay số ngày tương đối, không chuẩn hóa ngày tự động.
 
 | Biến | Mặc định |
 |---|---|

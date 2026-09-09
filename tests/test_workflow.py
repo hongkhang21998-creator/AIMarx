@@ -15,9 +15,9 @@ from fastapi.testclient import TestClient
 from fastmcp import Client
 from tro_ly_van_ban.domain import Extraction, validate_evidence
 from tro_ly_van_ban.fsguard import freeze, thaw
-from tro_ly_van_ban.service import Service
+from tro_ly_van_ban.service import Conflict, NotFound, Service
 import tro_ly_van_ban.service as mod
-from tro_ly_van_ban.model import ModelUnavailable
+from tro_ly_van_ban.model import ModelUnavailable, grammar_schema
 from tro_ly_van_ban.mcp_server import create_mcp
 from tro_ly_van_ban.web import create_app
 
@@ -163,7 +163,7 @@ def test_web_shows_run_error_without_replacing_state(service, monkeypatch):
     monkeypatch.setattr(mod.graph, "invoke", lambda *a, **k: (_ for _ in ()).throw(ModelUnavailable("offline")))
     client = TestClient(create_app(service), base_url="http://127.0.0.1")
     token = re.search('name="csrf" value="([^"]+)"', client.get("/").text).group(1)
-    client.post(f"/documents/{doc_id}/run", data={"csrf": token})
+    client.post(f"/documents/{doc_id}/run", data={"csrf": token, "version": "1"})
     page = client.get(f"/documents/{doc_id}").text
     assert "Trạng thái: approved" in page
     assert "Model chưa sẵn sàng" in page
@@ -272,6 +272,203 @@ def test_reads_stay_responsive_while_a_write_holds_the_lock(tmp_path):
     elapsed, page = asyncio.run(exercise())
     assert page.status_code == 200
     assert elapsed < LOOP_LAG_LIMIT, f"GET /tasks mất {elapsed:.2f}s trong lúc một lệnh ghi đang đợi lock"
+
+
+def _web(service):
+    client = TestClient(create_app(service), base_url="http://127.0.0.1")
+    return client, re.search('name="csrf" value="([^"]+)"', client.get("/").text).group(1)
+
+
+def _counts(service, doc_id):
+    doc = service.get(doc_id)
+    return (doc["latest"]["version"] if doc["latest"] else 0), len(doc["approvals"])
+
+
+# ---------------------------------------------------------------- QA-03
+
+
+def test_stale_run_is_refused_before_the_model_is_called(service, monkeypatch):
+    """Tab cũ không được đẩy model chạy rồi đè lên bản người khác vừa sửa."""
+    doc_id = sample(service)
+    service.save(doc_id, content())
+    service.save(doc_id, content(), expected_version=1)
+    called = []
+    monkeypatch.setattr(mod.graph, "invoke", lambda *a, **k: called.append(1))
+    client, csrf = _web(service)
+    response = client.post(f"/documents/{doc_id}/run", data={"csrf": csrf, "version": "1"}, follow_redirects=False)
+    assert response.status_code == 409, response.text[:200]
+    assert called == [], "model bị gọi dù phiên bản đã cũ"
+    assert _counts(service, doc_id) == (2, 0)
+    assert "tải lại trang" in response.text
+
+
+def test_current_tab_can_still_run(service):
+    """Hàng rào phải chặn tab cũ mà không chặn tab đang xem bản hiện hành."""
+    doc_id = sample(service)
+    service.save(doc_id, content())
+    client, csrf = _web(service)
+    response = client.post(f"/documents/{doc_id}/run", data={"csrf": csrf, "version": "1"}, follow_redirects=False)
+    assert response.status_code == 303
+    assert service.get(doc_id)["latest"]["version"] == 2
+
+
+def test_run_form_carries_the_version_it_is_showing(service):
+    doc_id = sample(service)
+    service.save(doc_id, content())
+    client, _ = _web(service)
+    page = client.get(f"/documents/{doc_id}").text
+    form = page.split(f'action="/documents/{doc_id}/run"')[1].split("</form>")[0]
+    assert 'name="version" value="1"' in form
+
+
+def test_run_without_version_is_refused(service, monkeypatch):
+    """Chính sách đã chốt: thiếu version thì từ chối, không đoán là bản mới nhất."""
+    doc_id = sample(service)
+    service.save(doc_id, content())
+    called = []
+    monkeypatch.setattr(mod.graph, "invoke", lambda *a, **k: called.append(1))
+    client, csrf = _web(service)
+    response = client.post(f"/documents/{doc_id}/run", data={"csrf": csrf}, follow_redirects=False)
+    assert response.status_code == 400
+    assert called == []
+    assert _counts(service, doc_id) == (1, 0)
+
+
+def test_service_run_still_accepts_no_expectation(service):
+    """MCP và lệnh nội bộ không đi qua biểu mẫu; expected_version vẫn tuỳ chọn."""
+    doc_id = sample(service)
+    assert service.run(doc_id) == 1
+    with pytest.raises(Conflict):
+        service.run(doc_id, expected_version=0)
+
+
+# ---------------------------------------------------------------- QA-04
+
+
+@pytest.mark.parametrize("route,data,reason", [
+    ("manual", {}, "thiếu version"),
+    ("save", {"version": "1"}, "thiếu content"),
+    ("save", {"content": "{}"}, "thiếu version"),
+    ("review", {"version": "1"}, "thiếu hash và action"),
+    ("review", {"version": "1", "hash": "abc"}, "thiếu action"),
+    ("edit", {}, "thiếu version"),
+    ("run", {}, "thiếu version"),
+    ("manual", {"version": ""}, "version rỗng"),
+    ("manual", {"version": "abc"}, "version không phải số"),
+    ("manual", {"version": "1.5"}, "version không phải số nguyên"),
+    ("save", {"version": "1", "content": "{"}, "JSON hỏng"),
+    ("save", {"version": "1", "content": '{"tasks": "sai kiểu"}'}, "sai schema"),
+    ("review", {"version": "1", "hash": "sai", "action": "approved"}, "hash không khớp"),
+    ("review", {"version": "1", "hash": "x", "action": "xoá luôn"}, "hành động lạ"),
+])
+def test_form_errors_are_client_errors_and_change_nothing(service, route, data, reason):
+    doc_id = sample(service)
+    service.save(doc_id, content())
+    before = _counts(service, doc_id)
+    client, csrf = _web(service)
+    response = client.post(f"/documents/{doc_id}/{route}", data={"csrf": csrf, **data}, follow_redirects=False)
+    assert 400 <= response.status_code < 500, (reason, response.status_code, response.text[:200])
+    assert _counts(service, doc_id) == before, f"{reason}: đã tạo phiên bản hoặc bản duyệt mới"
+    assert "Chưa thực hiện được" in response.text, reason
+
+
+@pytest.mark.parametrize("route,data", [
+    ("manual", {"version": "0"}),
+    ("save", {"version": "0", "content": "{}"}),
+    ("review", {"version": "1", "hash": "x", "action": "approved"}),
+    ("run", {"version": "0"}),
+])
+def test_unknown_document_is_404(service, route, data):
+    client, csrf = _web(service)
+    response = client.post(f"/documents/khongcothat/{route}", data={"csrf": csrf, **data}, follow_redirects=False)
+    assert response.status_code == 404, (route, response.status_code)
+
+
+@pytest.mark.parametrize("route", ["save", "manual", "review"])
+def test_stale_writes_are_409(service, route):
+    doc_id = sample(service)
+    service.save(doc_id, content())
+    stale = service.get(doc_id)["latest"]
+    service.save(doc_id, content(), expected_version=1)
+    payload = {
+        "save": {"version": "1", "content": json.dumps(content())},
+        "manual": {"version": "1"},
+        "review": {"version": "1", "hash": stale["hash"], "action": "approved"},
+    }[route]
+    client, csrf = _web(service)
+    response = client.post(f"/documents/{doc_id}/{route}", data={"csrf": csrf, **payload}, follow_redirects=False)
+    assert response.status_code == 409, (route, response.status_code, response.text[:200])
+    assert _counts(service, doc_id) == (2, 0)
+
+
+def test_error_page_is_vietnamese_and_keeps_what_was_typed(service):
+    doc_id = sample(service)
+    service.save(doc_id, content())
+    typed = '{"tasks": [], "ghi chú của tôi": "đừng bắt tôi gõ lại"'
+    client, csrf = _web(service)
+    response = client.post(f"/documents/{doc_id}/save", data={"csrf": csrf, "version": "1", "content": typed})
+    assert response.status_code == 400
+    assert "JSON không hợp lệ ở dòng" in response.text
+    assert "đừng bắt tôi gõ lại" in response.text, "mất dữ liệu người dùng vừa gõ"
+
+
+def test_programming_errors_are_not_swallowed_into_a_client_error(service, monkeypatch):
+    """Không được biến mọi exception thành trang lỗi 4xx.
+
+    `bad_value` chỉ bắt ValueError. Một lỗi lập trình không kế thừa ValueError
+    thì phải nổi lên thành 500 chứ không được đội lốt lỗi nhập liệu — nếu không
+    thì hỏng thật và người dùng gõ sai trông giống hệt nhau.
+    """
+    doc_id = sample(service)
+    service.save(doc_id, content())
+    def boom(*args, **kwargs):
+        raise AttributeError("lỗi lập trình giả lập")
+    monkeypatch.setattr(service, "save", boom)
+    client, csrf = _web(service)
+    client_raising = TestClient(client.app, base_url="http://127.0.0.1", raise_server_exceptions=False)
+    response = client_raising.post(f"/documents/{doc_id}/manual", data={"csrf": csrf, "version": "1"}, follow_redirects=False)
+    assert response.status_code == 500
+
+
+def test_run_failure_still_redirects_and_shows_on_the_document_page(service, monkeypatch):
+    """Lỗi model không phải lỗi của yêu cầu: vẫn 303, thông báo nằm ở trang tài liệu."""
+    doc_id = sample(service)
+    service.save(doc_id, content())
+    monkeypatch.setattr(mod.graph, "invoke", lambda *a, **k: (_ for _ in ()).throw(ModelUnavailable("offline")))
+    client, csrf = _web(service)
+    response = client.post(f"/documents/{doc_id}/run", data={"csrf": csrf, "version": "1"}, follow_redirects=False)
+    assert response.status_code == 303
+    assert "Model chưa sẵn sàng" in client.get(f"/documents/{doc_id}").text
+
+
+def test_grammar_schema_drops_lengths_without_weakening_validation():
+    """Khung sinh bỏ ràng buộc độ dài; tầng validate thì không được bỏ.
+
+    llama-server 0.33.3 không dựng nổi grammar khi maxLength đúng bằng 2000 —
+    giá trị EvidenceValue.value đang khai — nên mọi lần gọi model thật trả 400
+    "failed to parse grammar". Bỏ khỏi khung sinh là cách né lỗi thượng nguồn
+    mà không đụng vào ràng buộc thật; ca này chốt rằng ràng buộc thật còn đó.
+    """
+    original = Extraction.model_json_schema()
+    trimmed = grammar_schema(original)
+
+    def lengths(node):
+        if isinstance(node, dict):
+            return ({k for k in node if k in {"minLength", "maxLength"}}
+                    | set().union(*(lengths(v) for v in node.values())) if node else set())
+        if isinstance(node, list):
+            return set().union(*(lengths(v) for v in node)) if node else set()
+        return set()
+
+    assert lengths(trimmed) == set()
+    assert lengths(original) == {"minLength", "maxLength"}, "không được sửa schema gốc tại chỗ"
+    assert original["$defs"]["EvidenceValue"]["properties"]["value"]["maxLength"] == 2000
+    # Cua kiem that van dong: value qua dai phai bi tu choi nhu truoc.
+    quote = "x" * 2001
+    with pytest.raises(ValueError):
+        Extraction.model_validate({"tasks": [{"request": {"value": quote, "block_id": "b1", "quote": quote}}]})
+    ok = Extraction.model_validate({"tasks": [{"request": {"value": "a", "block_id": "b1", "quote": "a"}}]})
+    assert ok.tasks[0].request.value == "a"
 
 
 def test_demo_and_scan(service):

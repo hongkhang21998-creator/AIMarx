@@ -15,6 +15,18 @@ from .model import extract, ModelUnavailable
 from .parser import parse, MAX_BYTES
 
 
+class NotFound(ValueError):
+    """Không có tài nguyên được yêu cầu — HTTP 404."""
+
+
+class Conflict(ValueError):
+    """Trạng thái đã đổi dưới chân người gửi — HTTP 409.
+
+    Khác với lỗi nhập liệu: yêu cầu đúng cú pháp, chỉ là nó nói về một phiên bản
+    không còn là hiện hành. Gửi lại y nguyên vẫn hỏng; phải tải lại trang trước.
+    """
+
+
 def requires_ocr(blocks: list[dict], warnings: list[str]) -> bool:
     """Điều kiện cần OCR, suy ra từ dữ liệu bất biến của lần nhập.
 
@@ -109,7 +121,7 @@ class Service:
         with self.db() as db:
             row = db.execute("SELECT * FROM documents WHERE id=?", (document_id,)).fetchone()
             if row is None:
-                raise ValueError("Không tìm thấy tài liệu")
+                raise NotFound("Không tìm thấy tài liệu")
             result = dict(row)
             result["blocks"] = json.loads(result["blocks"])
             result["warnings"] = json.loads(result["warnings"])
@@ -146,11 +158,21 @@ class Service:
                 db.execute("INSERT INTO documents(id,name,suffix,blocks,warnings,state,error,error_kind) VALUES(?,?,?,?,?,?,?,?)", (digest, Path(name).name[:200], suffix, json.dumps(blocks, ensure_ascii=False), json.dumps(warnings, ensure_ascii=False), state, "", ""))
         return digest
 
-    def run(self, document_id):
+    def run(self, document_id, expected_version=None):
+        """Trích xuất bằng model rồi lưu thành phiên bản mới.
+
+        `expected_version` là phiên bản mà người gửi đang nhìn thấy. Kiểm nó
+        **trước** khi gọi model: một tab mở từ hôm qua không được phép đẩy model
+        chạy rồi đè lên bản người khác vừa sửa. Kiểm dưới cùng một lần giữ lock
+        với lần ghi, nếu không thì giữa kiểm và ghi vẫn còn khe cho bản khác chen.
+        """
         with self.lock:
             doc = self.get(document_id)
             if requires_ocr(doc["blocks"], doc["warnings"]):
                 raise ValueError("Cần OCR đầy đủ trước khi xử lý")
+            current = doc["latest"]["version"] if doc["latest"] else 0
+            if expected_version is not None and expected_version != current:
+                raise Conflict(f"Phiên bản đã thay đổi (bạn đang xem {expected_version}, hiện tại là {current}); tải lại trang")
             try:
                 from fastmcp import Client
                 from .mcp_server import create_mcp
@@ -160,7 +182,10 @@ class Service:
                         return response.data
                 source = asyncio.run(read_source())
                 result = graph.invoke({"blocks": source["blocks"], "mode": self.mode, "model": self.model})
-                return self.save(document_id, result["result"], provenance=self.mode)
+                # Chot lai lan nua o cua ghi. Lock dang giu nen khong the lech,
+                # nhung the la hang rao khong phu thuoc vao viec ai do sau nay
+                # van giu lock suot lan goi model.
+                return self.save(document_id, result["result"], expected_version=current, provenance=self.mode)
             except Exception as exc:
                 self.record_failure(document_id, exc)
                 raise
@@ -193,7 +218,7 @@ class Service:
                 raise ValueError("Cần OCR đầy đủ trước khi lập phiếu")
             current = doc["latest"]["version"] if doc["latest"] else 0
             if expected_version is not None and expected_version != current:
-                raise ValueError("Phiên bản đã thay đổi; tải lại trang")
+                raise Conflict(f"Phiên bản đã thay đổi (bạn đang xem {expected_version}, hiện tại là {current}); tải lại trang")
             value = Extraction.model_validate(content)
             validate_evidence(value, doc["blocks"])
             encoded = json.dumps(value.model_dump(), ensure_ascii=False, sort_keys=True)
@@ -243,10 +268,14 @@ class Service:
             raise ValueError("Hành động không hợp lệ")
         with self.lock, self.db() as db:
             db.execute("BEGIN IMMEDIATE")
-            latest = db.execute("SELECT * FROM versions WHERE document_id=? ORDER BY version DESC LIMIT 1", (document_id,)).fetchone()
             state = db.execute("SELECT state FROM documents WHERE id=?", (document_id,)).fetchone()
+            # Kiem su ton tai truoc: khong co tai lieu ma bao "phien ban cu hoac
+            # da duyet" thi vua sai ma trang thai vua noi sai su that.
+            if state is None:
+                raise NotFound("Không tìm thấy tài liệu")
+            latest = db.execute("SELECT * FROM versions WHERE document_id=? ORDER BY version DESC LIMIT 1", (document_id,)).fetchone()
             if not latest or latest["version"] != version or latest["hash"] != digest or state["state"] != "awaiting_review":
-                raise ValueError("Phiên bản cũ hoặc đã duyệt; tải lại trang")
+                raise Conflict("Phiên bản cũ hoặc đã duyệt; tải lại trang")
             if action == "approved":
                 # Hash noi dung JSON khong noi gi ve tep DOCX. Nguoi dung xac nhan
                 # cai ho doc trong DOCX, nen dung bytes DOCX moi la thu phai khop.

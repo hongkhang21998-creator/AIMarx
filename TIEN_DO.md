@@ -1,6 +1,31 @@
 # Tiến độ từng ngày
 
-Cập nhật: 09/09/2026. Theo yêu cầu anh Nguyen Hong Khang: **mỗi ngày làm một ít, không chạy marathon**.
+Cập nhật: 10/09/2026. Theo yêu cầu anh Nguyen Hong Khang: **mỗi ngày làm một ít, không chạy marathon**.
+
+## Trạng thái mới nhất — 10/09/2026
+
+Ưu tiên hiện tại là MCP/provider cho trợ lý văn bản. Mục này thay đầu việc tiếp theo trong bàn giao 09/09 bên dưới; các ghi chép cũ được giữ làm lịch sử.
+
+| Mã | Sản phẩm | Phụ trách | Trạng thái và bằng chứng |
+|---|---|---|---|
+| G-MCP-01 | Danh mục model công khai và test | Gemini viết; Astra nghiệm thu/tích hợp | Đã merge [PR #17](https://github.com/hongkhang21998-creator/tro-ly-van-ban/pull/17), commit `881d1aa9c7280a4c5bf5c0aa6d7ab5bde34f4ad5` |
+| PSC-01 | Hợp đồng bảo mật provider | Astra | Đã merge [PR #18](https://github.com/hongkhang21998-creator/tro-ly-van-ban/pull/18), commit `c8f063937a1f95d4a9c58ae17b98643caaf6d940`; mới hoàn thành thiết kế |
+| PolicyGate | Kiểm tra quyền gửi dữ liệu thuần dữ liệu và test | Astra | Chưa triển khai; một đầu việc nhỏ cho buổi tiếp theo khi anh yêu cầu |
+
+- G-MCP-01: test Gemini **66 passed**; regression toàn ứng dụng **131 passed, 1 skipped, 1 warning** trước merge. Đây là bằng chứng đã chạy ở phiên tích hợp, không phải lượt chạy mới trong lần cập nhật tài liệu này.
+- PSC-01: [hợp đồng](docs/PROVIDER_SECURITY_CONTRACT.md) đã vào main; chưa triển khai quản lý khóa, grant, ledger, adapter cloud hoặc gọi DeepSeek/GLM thật. Merge thiết kế không cấp quyền chi phí API hay gửi dữ liệu thật.
+- Phân công: Astra nhận phần khó về quyền/API/chi phí; Claude giữ lõi; Gemini làm gói nhỏ có hợp đồng. Không giao thêm việc hôm nay.
+- [PR #15](https://github.com/hongkhang21998-creator/tro-ly-van-ban/pull/15) về G01b còn mở tại lúc kiểm tra; kết quả trong PR đó chưa vào main. Các dòng G01a–G01c phía dưới là baseline cũ, không dùng làm yêu cầu chạy tiếp; tạm hoãn để ưu tiên MCP.
+
+### Bàn giao cập nhật tiến độ
+
+- Ngày, người phụ trách: 10/09/2026 — Astra.
+- Nhánh/base/phạm vi: `codex/progress-gmcp01-psc01`, base `c8f0639`; chỉ `TIEN_DO.md` và `WORKLOG.md`.
+- Đã làm: ghi hai mốc đã merge và đầu việc tiếp theo; giữ lịch sử và phần G01b cho PR #15.
+- Kiểm tra: đối chiếu trạng thái GitHub các phiên trước và PR #15 hiện tại; kiểm diff tài liệu, không chạy lại test ứng dụng.
+- Chưa làm: PolicyGate và kết nối cloud.
+- Việc nhỏ tiếp theo: Astra triển khai PolicyGate theo PSC-01 sau khi anh yêu cầu.
+- Trạng thái: cập nhật tài liệu chờ merge; dừng tại PR này.
 
 ## Nhịp làm việc
 

@@ -11,6 +11,9 @@ Cập nhật: 10/09/2026. Theo yêu cầu anh Nguyen Hong Khang: **mỗi ngày l
 | G-MCP-01 | Danh mục model công khai và test | Gemini viết; Astra nghiệm thu/tích hợp | Đã merge [PR #17](https://github.com/hongkhang21998-creator/tro-ly-van-ban/pull/17), commit `881d1aa9c7280a4c5bf5c0aa6d7ab5bde34f4ad5` |
 | PSC-01 | Hợp đồng bảo mật provider | Astra | Đã merge [PR #18](https://github.com/hongkhang21998-creator/tro-ly-van-ban/pull/18), commit `c8f063937a1f95d4a9c58ae17b98643caaf6d940`; mới hoàn thành thiết kế |
 | PolicyGate | Kiểm tra quyền gửi dữ liệu thuần dữ liệu và test | Astra | Chưa triển khai; một đầu việc nhỏ cho buổi tiếp theo khi anh yêu cầu |
+| HOS-01–06 | SLM local đề xuất → kiểm quyền/ngân sách → worker → kiểm kết quả → anh duyệt | Astra thiết kế; Claude giữ lõi; Gemini gói nhỏ | Đã bổ sung kế hoạch vào `KE_HOACH_AI_AGENT.md`; chưa triển khai, bắt đầu sau các bảo vệ PSC-01 |
+
+Lộ trình HOS: baseline một worker → schema và bộ mẫu → benchmark SLM chỉ đề xuất → điều phối một worker → thử worker kiểm tra → xem xét fine-tune. Mỗi mốc chia buổi nhỏ; PolicyGate vẫn là việc tiếp theo. Việc thêm kế hoạch không đồng nghĩa bật cloud, tải model hoặc huấn luyện ngay.
 
 - G-MCP-01: test Gemini **66 passed**; regression toàn ứng dụng **131 passed, 1 skipped, 1 warning** trước merge. Đây là bằng chứng đã chạy ở phiên tích hợp, không phải lượt chạy mới trong lần cập nhật tài liệu này.
 - PSC-01: [hợp đồng](docs/PROVIDER_SECURITY_CONTRACT.md) đã vào main; chưa triển khai quản lý khóa, grant, ledger, adapter cloud hoặc gọi DeepSeek/GLM thật. Merge thiết kế không cấp quyền chi phí API hay gửi dữ liệu thật.

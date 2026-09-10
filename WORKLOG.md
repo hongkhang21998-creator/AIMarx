@@ -1,5 +1,15 @@
 # Nhật ký phối hợp
 
+## 2026-09-10 — codex/provider-security-contract — PSC-01, Astra
+
+- Người dùng yêu cầu thiết kế quản lý khóa, quyền gửi cloud, timeout/retry và ngân sách cho trợ lý văn bản.
+- Base `881d1aa9c7280a4c5bf5c0aa6d7ab5bde34f4ad5`, đã có G-MCP-01 qua PR #17. Phạm vi sở hữu: `docs/PROVIDER_SECURITY_CONTRACT.md` và mục nhật ký này; không sửa src/tests/DB/runtime.
+- Đã đọc mã, WORKLOG và PR mở #8/#11/#15; giữ nguyên tài liệu tiến độ đang được PR #15 chỉnh để tránh chồng việc.
+- Thiết kế: grant gắn snapshot, khóa riêng backend, allowlist endpoint, deadline tổng, retry giới hạn, ledger giữ chi phí chưa rõ, test nghiệm thu tương lai và phân công từng buổi.
+- Xác minh: đối chiếu nguồn chính thức được liên kết trong hợp đồng; kiểm diff/phạm vi tài liệu. Không chạy API, không dùng khóa/dữ liệu thật, không tuyên bố đã triển khai hoặc đã chạy ca test tương lai.
+- Trạng thái: thiết kế đề xuất chờ người dùng duyệt PR. Việc nhỏ tiếp theo: Astra làm PolicyGate thuần dữ liệu sau khi được yêu cầu; Claude giữ lõi, Gemini nhận gói nhỏ riêng.
+- Dừng ở PR tài liệu; người dùng merge.
+
 ## 2026-09-08 — codex/local-mvp — dừng, bàn giao Claude Opus
 
 - Yêu cầu: dùng laptop làm máy chủ, GPT-6 Astra mức suy luận low viết code, tạo và mở repo GitHub.

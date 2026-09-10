@@ -1,5 +1,16 @@
 # Nhật ký phối hợp
 
+## 2026-09-10 — codex/policy-gate — PG-01, Astra
+
+- Người dùng yêu cầu làm PolicyGate sau khi merge PR #20. Base `8324ffde76ce951f7c1003888393deef02c5e075`; đã kiểm tra PR mở #8/#11/#15 trước khi nhận việc.
+- Phạm vi sở hữu: mới `src/tro_ly_van_ban/policy_gate.py`, `tests/test_policy_gate.py`; cập nhật `docs/PROVIDER_SECURITY_CONTRACT.md`, `TIEN_DO.md`, `WORKLOG.md`. Không sửa service/web/model/catalogue/MCP/dependency/DB.
+- Chốt API thuần dữ liệu: request operation/model_id; catalogue, cloud_enabled và nhãn do backend tin cậy cung cấp. Từ chối kiểu/schema sai; validate cả model disabled; nhãn unknown/internal/restricted chặn chuẩn bị cloud. Cloud đủ điều kiện chỉ trả CONSENT_REQUIRED; local trả PREPARE_LOCAL, không phải quyền thực thi. Enum không dùng làm boolean được.
+- Kiểm thử PG-01: **107 passed** trong 0,23s. Regression snapshot nhánh: **238 passed, 1 skipped, 1 warning** trong 13,55s, gồm test MCP xác nhận đúng ba tool cũ. Skip là junction chỉ Windows, warning từ Starlette TestClient. Chạy regression ngoài sandbox do giới hạn FastAPI/MCP đã xác minh ở các phiên trước; không gọi provider thật.
+- Test có dữ liệu tổng hợp; kiểm sai schema, nhãn trộn, draft không nguồn, caller giả quyền, model disabled/không tồn tại, giới hạn, không sửa input và kiểm không mở file/socket/log trong các ca đánh giá.
+- Giới hạn: chưa nối runtime/MCP, không kiểm grant/snapshot, không giữ ngân sách hoặc xác minh provenance của nhãn; các tầng đó phải hoàn thiện trước khi bật cloud. Không coi test hàm thuần là chứng minh egress toàn ứng dụng bị chặn.
+- Rollback: revert PR PG-01; không migration hoặc dữ liệu cần phục hồi. Buổi sau đề xuất hợp đồng snapshot bất biến và kiểm thay đổi nguồn; không tự triển khai tiếp.
+- Trạng thái: hoàn thành module/test, chờ người dùng review và merge; CI GitHub theo PR. PR #15 vẫn mở, khi merge phải giữ trạng thái PG-01 mới và đối chiếu phần tiến độ cũ.
+
 ## 2026-09-10 — codex/slm-swarm-plan — bổ sung hướng SLM điều phối local
 
 - Người dùng chọn luồng SLM đề xuất phân công → chương trình kiểm quyền/ngân sách → worker thực hiện → kiểm kết quả → người dùng duyệt, và yêu cầu đưa vào kế hoạch.

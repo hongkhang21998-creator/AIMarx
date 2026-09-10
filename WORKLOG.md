@@ -1,5 +1,15 @@
 # Nhật ký phối hợp
 
+## 2026-09-10 — codex/progress-gmcp01-psc01 — chốt hai mốc đã merge
+
+- Người dùng yêu cầu cập nhật tiến độ và worklog. Base `c8f063937a1f95d4a9c58ae17b98643caaf6d940`; chỉ sở hữu `TIEN_DO.md`, `WORKLOG.md` trên nhánh này.
+- **G-MCP-01 hoàn thành:** Gemini bàn giao `src/tro_ly_van_ban/model_catalog.py` và `tests/test_model_catalog.py`; Astra nghiệm thu, tích hợp qua PR #17. Người dùng đã merge, commit `881d1aa9c7280a4c5bf5c0aa6d7ab5bde34f4ad5`.
+- Bằng chứng test phiên tích hợp: Gemini 66 passed; regression 131 passed, 1 skipped (Windows-only), 1 cảnh báo Starlette; pip check sạch. Không chạy lại trong lần sửa tài liệu này.
+- **PSC-01 hoàn thành thiết kế:** PR #18 đã được người dùng merge, commit `c8f063937a1f95d4a9c58ae17b98643caaf6d940`. Trạng thái “chờ duyệt” trong mục phiên thiết kế bên dưới là lịch sử, đã được mốc này thay thế. Hợp đồng ở `docs/PROVIDER_SECURITY_CONTRACT.md`; runtime bảo mật/cloud chưa triển khai.
+- Đã kiểm tra PR #15 còn mở, head `24dba8718dc9d79c1c5936b219cd70e8f49dc31d`. Không sửa nội dung nghiệm thu G01b của nhánh đó; khi merge #15 phải giữ mục trạng thái 10/09 mới này, không phục hồi ưu tiên cũ. PR #15 và nhánh này cùng chạm TIEN_DO nên cần đối chiếu khi merge lần lượt.
+- Việc nhỏ tiếp theo: Astra làm PolicyGate thuần dữ liệu và test theo PSC-01 khi người dùng yêu cầu; Claude giữ lõi, Gemini nhận gói nhỏ riêng. Không tự khởi chạy tác vụ tiếp theo, không gọi API hoặc dùng dữ liệu thật.
+- Kiểm tra lần cập nhật này: diff/phạm vi hai file tài liệu. Tạo PR để người dùng merge; dừng tại bàn giao.
+
 ## 2026-09-10 — codex/provider-security-contract — PSC-01, Astra
 
 - Người dùng yêu cầu thiết kế quản lý khóa, quyền gửi cloud, timeout/retry và ngân sách cho trợ lý văn bản.

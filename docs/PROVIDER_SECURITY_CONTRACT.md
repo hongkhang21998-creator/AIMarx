@@ -2,6 +2,37 @@
 
 Ngày: 10/09/2026. Trạng thái: **thiết kế đề xuất, chưa triển khai**. Base: `881d1aa9c7280a4c5bf5c0aa6d7ab5bde34f4ad5` (PR #17 đã merge). Astra phụ trách thiết kế và nghiệm thu phần API khó; người dùng duyệt PR. Các giá trị mặc định bên dưới là lựa chọn của dự án, không phải giới hạn do nhà cung cấp công bố.
 
+### Cập nhật triển khai — PG-01
+
+PSC-01 đã được duyệt qua PR #18; nhãn trạng thái đầu tài liệu là lịch sử lúc viết thiết kế. PG-01 bổ sung `policy_gate.evaluate_policy`, **chỉ kiểm điều kiện chuẩn bị**, chưa nối vào runtime/MCP. Các phần grant/snapshot, kiểm phiên bản, ngân sách, khóa và adapter bên dưới vẫn chưa triển khai.
+
+API nội bộ:
+
+```python
+evaluate_policy(
+    request={"operation": "extract", "model_id": "configured-id"},
+    models=trusted_catalogue,
+    cloud_enabled=False,
+    prompt_classification="unknown",
+    source_classifications=("unknown",),
+)
+```
+
+`request` chỉ nhận hai khóa operation/model_id, operation là extract hoặc draft, ID không rỗng và tối đa 128 ký tự trước strip. Không có nội dung prompt hoặc quyền trong request này; đây chưa phải toàn bộ PrepareRequest ở mục 5. `models` dùng schema bốn trường đầu vào của G-MCP-01, tối đa 100 mục. Tất cả mục, kể cả disabled, phải hợp lệ. Model ID phân biệt hoa thường sau strip.
+
+Các keyword còn lại chỉ backend cấp từ cấu hình/kho local tin cậy, không ánh xạ trực tiếp từ HTTP/MCP hoặc output SLM. `source_classifications` là tuple tối đa 20 nhãn, một nhãn cho mỗi block đã chọn; thiếu nhãn của một block phải thay bằng unknown, không bỏ block khỏi danh sách. extract cần ít nhất một block; draft cho phép không có nguồn nhưng vẫn phải phân loại prompt. `prompt_classification` bao phủ mọi phần còn lại của payload (instruction/dữ kiện/template/schema), lấy nhãn hạn chế nhất nếu có nhiều thành phần. Hàm thuần dữ liệu không thể chứng minh backend đã lấy đúng nhãn hay bao phủ đủ payload; tích hợp snapshot và kiểm quyền là điều kiện bắt buộc sau này.
+
+Kết quả là enum `PolicyDecision`, phải so sánh từng giá trị, không dùng làm boolean (hàm bool sẽ báo TypeError):
+
+| Giá trị | Ý nghĩa |
+|---|---|
+| INVALID_REQUEST | Sai schema/kiểu/giới hạn hoặc catalogue lỗi; ưu tiên trước các kết luận chính sách |
+| POLICY_DENIED | Model không có/bị tắt, cloud chưa bật, hoặc có nhãn internal/restricted/unknown trong yêu cầu cloud |
+| PREPARE_LOCAL | Đủ điều kiện phân loại để chuẩn bị local; chưa xác minh endpoint hay quyền đọc tài liệu |
+| CONSENT_REQUIRED | Cloud bật và tất cả thành phần public/synthetic; vẫn phải xin xác nhận người dùng và qua toàn bộ kiểm tra thực thi |
+
+Không có kết quả cho phép gọi cloud ngay. PG-01 không cấp/kiểm grant hoặc giữ tiền, không đọc env/file/DB, không gọi mạng/log, không sửa input. Label sai hoa thường/khoảng trắng bị từ chối, không tự nâng thành public. Ba tool MCP hiện có chưa dùng module này; test đơn vị không phải bằng chứng đã chặn egress của toàn ứng dụng. Buổi tiếp theo đề xuất chốt schema snapshot bất biến và phép kiểm thay đổi nguồn; GrantStore/BudgetLedger vẫn làm từng gói sau đó.
+
 ## 1. Phạm vi và hiện trạng
 
 Ứng dụng cá nhân xử lý và tạo sinh văn bản. `model_catalog.py` chỉ kiểm tra metadata; `enabled` không xác nhận API key hợp lệ, model đang hoạt động, hay quyền gửi dữ liệu. `data_destination` là nhãn suy từ provider, không chứng minh kết nối thực tế an toàn.

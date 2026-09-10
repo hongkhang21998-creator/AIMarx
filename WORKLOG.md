@@ -1,5 +1,14 @@
 # Nhật ký phối hợp
 
+## 2026-09-10 — codex/slm-swarm-plan — bổ sung hướng SLM điều phối local
+
+- Người dùng chọn luồng SLM đề xuất phân công → chương trình kiểm quyền/ngân sách → worker thực hiện → kiểm kết quả → người dùng duyệt, và yêu cầu đưa vào kế hoạch.
+- Base `57398505e0db93fcc224e27df39ee9c7128082f0` (PR #19 đã merge). Phạm vi: `KE_HOACH_AI_AGENT.md`, `TIEN_DO.md`, `WORKLOG.md`; không sửa runtime/test/dependency.
+- Đã ghi vai trò, giới hạn, thứ tự HOS-01–06, tiêu chí pilot và phân biệt chạy SLM/fine-tune. PolicyGate vẫn là đầu việc tiếp theo; chưa chạy benchmark hoặc bật cloud.
+- Đã kiểm tra PR mở #8/#11/#15. Kế hoạch này không coi thiết kế upstream swarm #8 hoặc nghiệm thu #15 là đã merge. Khi nhập các PR cũ, giữ định hướng và tiến độ mới, đối chiếu phần trùng.
+- Kiểm tra: diff tài liệu, liên kết nội bộ và phạm vi ba file; không chạy lại test ứng dụng vì không đổi mã.
+- Trạng thái: kế hoạch bổ sung chờ merge. Người dùng merge; dừng tại PR tài liệu, không tự giao hoặc chạy các mốc HOS.
+
 ## 2026-09-10 — codex/progress-gmcp01-psc01 — chốt hai mốc đã merge
 
 - Người dùng yêu cầu cập nhật tiến độ và worklog. Base `c8f063937a1f95d4a9c58ae17b98643caaf6d940`; chỉ sở hữu `TIEN_DO.md`, `WORKLOG.md` trên nhánh này.

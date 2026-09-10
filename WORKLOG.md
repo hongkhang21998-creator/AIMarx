@@ -1,5 +1,14 @@
 # Nhật ký phối hợp
 
+## 2026-09-10 — codex/gemini-cli-housekeeping — chuẩn bị G-CLI-01
+
+- PR #21 đã merge, main `fec5955ec2449ed73690e8873402ec98d65e7410`: PG-01 đã vào repo, chưa tích hợp runtime.
+- Người dùng yêu cầu giao Gemini CLI trên máy nhiều việc phụ. Gói đã soạn: kiểm tối đa 30 đường dẫn độc nhất, 20 FAQ, 24 ca kiểm thủ công, chỉ tạo ba file trong `docs/qa/g-cli-01/`.
+- Phạm vi nhánh chuẩn bị: `docs/handoffs/GEMINI_CLI_HOUSEKEEPING.md`, mục WORKLOG này. Phiếu quy định base, nguồn đọc, output, quyền ghi và nghiệm thu; Claude giữ mã lõi, Astra nhận phần API khó.
+- Ban đầu chưa có CLI; người dùng sau đó yêu cầu tự cài. Đã cài gói chính thức `@google/gemini-cli@0.59.0` bằng npm của tài khoản asus, Node 24.19.0; `gemini --version` trả 0.59.0. Không thay dependency/runtime của ứng dụng Python.
+- Kiểm tra CLI bằng lời nhắc READY ở thư mục tạm không có mã nguồn: CLI thoát mã 41, yêu cầu cấu hình xác thực. Chưa có phản hồi model, chưa gửi source repo, chưa chạy G-CLI-01. Người dùng cần chạy `gemini` và đăng nhập Google trên máy trước.
+- Trạng thái: đã cài CLI và chuẩn bị hợp đồng; chờ người dùng đăng nhập. Nhánh sản phẩm của Gemini cần bản sao riêng trước khi chạy; người dùng merge PR.
+
 ## 2026-09-10 — codex/policy-gate — PG-01, Astra
 
 - Người dùng yêu cầu làm PolicyGate sau khi merge PR #20. Base `8324ffde76ce951f7c1003888393deef02c5e075`; đã kiểm tra PR mở #8/#11/#15 trước khi nhận việc.

@@ -75,6 +75,23 @@ Ghi nhận thay đổi so với câu "Gemini chưa có kết nối repo" ở b�
 
 Kết luận cho quy trình: **không đổi phân công**. Gemini vẫn không ghi vào repo; đầu ra vẫn do anh đưa về để Codex kiểm tra.
 
+## Phân công code tuần 07–13/09/2026
+
+Chỉ đạo mới nhất của anh Khang ngày 09/09: **Gemini làm phần code nhỏ, Claude vẫn giữ lõi**. Chỉ đạo này thay thế lựa chọn chuyển toàn bộ code sang Gemini trước đó.
+
+- **Codex:** đặc tả, giao phạm vi file, tiêu chí nghiệm thu, kiểm thử đầu ra và phối hợp tích hợp.
+- **Gemini qua AI Studio:** hàm thuần, công cụ kiểm dữ liệu giả lập, unit test nhỏ hoặc phần hiển thị đã tách riêng và có hợp đồng rõ. Mỗi gói một hành vi, ưu tiên 1–2 file; không tự mở rộng.
+- **Claude:** service và state machine, DB/migration, lock/concurrency, job/outbox, adapter Swarm/API, quyền truy cập, phiên bản, phê duyệt và tích hợp mã lõi.
+- **Anh Khang:** nghiệm thu nghiệp vụ và merge PR.
+
+Trước mỗi gói Gemini, Codex cung cấp: mục tiêu; base SHA và đúng file cần đọc/được sửa; chữ ký hàm/schema; ví dụ đầu vào/đầu ra; ca đạt/trượt; lệnh kiểm tra; điểm dừng. Nếu phần UI/test nằm trong file Claude đang giữ thì chưa giao, phải tách phạm vi trước. Không để Gemini đổi Python/FastAPI sang Vite/TypeScript.
+
+Ứng viên gói code đầu sau khi sửa và nghiệm thu lại G01a: một công cụ Python kiểm JSON fixture và quote/value, kèm test nhỏ dùng thư viện chuẩn, không truy cập DB/model/mạng. Đây là đề xuất chưa bắt đầu; Codex phải chốt hợp đồng riêng trước khi Gemini viết. Công cụ chỉ kiểm cấu trúc/nguồn, không thay kiểm ngữ nghĩa của tester.
+
+Giữ nhịp **mỗi buổi một đầu việc nhỏ cho cả dự án**. Việc trước mắt vẫn là sửa hai ca G01a; không vừa sửa ca vừa mở gói code mới. Đầu ra Gemini phải được chạy kiểm tra thực tế trước khi đưa vào PR; không coi lời “test pass” trong chat là bằng chứng.
+
+Nhật ký cập nhật phân công: chỉ sửa TIEN_DO.md trong PR #15 đang mở để không tạo thêm PR tài liệu trùng. Chưa giao tác vụ chạy cho Gemini/Claude, chưa sửa mã. Phân công này áp dụng trong tuần nêu trên; tuần sau xem lại cùng anh.
+
 ## Bảng tiến độ
 
 Trạng thái “đã chuẩn bị” không có nghĩa đã triển khai hoặc nghiệm thu.
@@ -82,9 +99,9 @@ Trạng thái “đã chuẩn bị” không có nghĩa đã triển khai hoặc
 | Mã | Buổi | Một đầu việc | Người chính | Điểm dừng | Trạng thái |
 |---|---|---|---|---|---|
 | P00 | 09/09/2026 | Ghi nhịp làm việc và gói Gemini vào repo | Codex | PR tài liệu được tạo, bàn giao cho anh | Đã merge vào main qua PR #12 |
-| G01a | 09/09/2026 | Gemini tạo đúng 2 ca: trích xuất hạn rõ; soạn mới thiếu số liệu | Gemini | Trả JSON 2 ca rồi dừng | Đã chạy; JSON ở `docs/handoffs/G01a-ket-qua.json`; chờ nghiệm thu |
-| G01b | Buổi sau | Kiểm tra 2 ca G01a | Codex | Kết luận đạt hoặc ghi đúng lỗi cần sửa | Sẵn sàng: đầu ra G01a đã có |
-| G01c | Khi 2 ca đầu đạt | Tạo thêm 3 ca: nguồn mâu thuẫn, hạn tương đối, thiếu người ký | Gemini | 3 ca JSON rồi dừng | Chờ G01b |
+| G01a | 09/09/2026 | Gemini tạo đúng 2 ca: trích xuất hạn rõ; soạn mới thiếu số liệu | Gemini | Trả JSON 2 ca rồi dừng | Đã kiểm G01b: cần sửa 3 điểm trước nghiệm thu; giữ JSON gốc |
+| G01b | 09/09/2026 | Kiểm tra 2 ca G01a | Codex | Kết luận đạt hoặc ghi đúng lỗi cần sửa | Đã kiểm tra; G01a cần sửa, xem [báo cáo](docs/qa/2026-09-09/G01b-nghiem-thu.md) |
+| G01c | Khi 2 ca đầu đạt | Tạo thêm 3 ca: nguồn mâu thuẫn, hạn tương đối, thiếu người ký | Gemini | 3 ca JSON rồi dừng | Chờ sửa và nghiệm thu lại G01a; chưa bắt đầu |
 | Q01 | Buổi riêng | Kiểm tra một PR QA của Claude theo SHA mới nhất | Codex | Báo cáo kiểm tra cho một PR | Chưa lên lịch |
 | S00 | Sau khi QA ổn định | Chốt một phương án thử Swarm + model local và yêu cầu môi trường | Codex | Bản cấu hình đề xuất có điểm chưa xác minh | Chưa bắt đầu |
 | S01 | Buổi riêng sau S00 | Thử một task Swarm với dữ liệu giả lập | Claude | Ghi kết quả thật, RAM/thời gian hoặc lỗi cụ thể | Chờ S00 và môi trường |
@@ -128,3 +145,14 @@ Chỉ tạo TIEN_DO.md và gói hướng dẫn Gemini trên nhánh codex/daily-s
 - Việc nhỏ tiếp theo: G01b — Codex nghiệm thu 2 ca theo sáu tiêu chí trong gói việc.
 - Trạng thái: chờ kiểm tra.
 - Dừng ở đây; chỉ tiếp tục khi anh yêu cầu.
+
+## Bàn giao G01b — 09/09/2026
+
+- Codex hoàn thành kiểm tra trên main `51e0c50dbdf8b7542e937a326d465394f82d17fe`; nhánh `codex/g01b-acceptance`.
+- Phạm vi: TIEN_DO.md và docs/qa/2026-09-09/G01b-nghiem-thu.md; không sửa đầu ra gốc/code.
+- JSON/khóa/enum đã định nghĩa đạt; 4/4 fact khớp nguồn; G01-02 có sources=[] và placeholder.
+- Chưa nghiệm thu bộ: G01-02 nhầm task hoàn tất với văn bản được duyệt, sai loại báo cáo; G01-01 assertion kiểm nhầm đáp án mẫu.
+- Ngày 2023 không vi phạm đề bài; approval_state chưa có enum nên cần làm rõ hợp đồng, không kết luận sai enum.
+- Buổi tới chỉ sửa 2 ca bằng prompt trong báo cáo; chưa gửi Gemini hoặc mở G01c.
+- Kiểm tra này là nghiệm thu dữ liệu, không chạy tính năng tạo sinh hoặc pytest.
+- Dừng tại đây; người dùng merge PR và quyết định buổi tiếp theo.

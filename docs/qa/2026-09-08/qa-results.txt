@@ -1,0 +1,59 @@
+FFFFFFF                                                                  [100%]
+=================================== FAILURES ===================================
+_________________ test_failed_rerun_preserves_approved_version _________________
+/tmp/tlvb-qa-20260908/test_qa_regressions.py:32: in test_failed_rerun_preserves_approved_version
+    assert doc['state']=='approved', f"unchanged v1 now {doc['state']}; tasks={s.tasks()}"
+E   AssertionError: unchanged v1 now model_unavailable; tasks=[{'document_id': '529f4b7b7cb9784b5dc7b3cb8b914ece9c107c07b38334a6e72babcb7066bd4e', 'version': 1, 'state': 'model_unavailable', 'deadline': None, 'request': {'block_id': 'b2', 'quote': 'Gui bao cao', 'value': 'Gui bao cao'}}]
+E   assert 'model_unavailable' == 'approved'
+E     
+E     - approved
+E     + model_unavailable
+________________ test_stale_run_cannot_supersede_newer_version _________________
+/tmp/tlvb-qa-20260908/test_qa_regressions.py:39: in test_stale_run_cannot_supersede_newer_version
+    assert s.get(d)['latest']['version']==2, f"stale run returned {response.status_code}, created v3"
+E   AssertionError: stale run returned 303, created v3
+E   assert 3 == 2
+___________ test_missing_form_fields_are_client_errors[manual-data0] ___________
+/tmp/tlvb-qa-20260908/test_qa_regressions.py:46: in test_missing_form_fields_are_client_errors
+    assert 400<=response.status_code<500, (route,response.status_code,response.text[:100])
+E   AssertionError: ('manual', 500, 'Internal Server Error')
+E   assert 500 < 500
+E    +  where 500 = <Response [500 Internal Server Error]>.status_code
+____________ test_missing_form_fields_are_client_errors[save-data1] ____________
+/tmp/tlvb-qa-20260908/test_qa_regressions.py:46: in test_missing_form_fields_are_client_errors
+    assert 400<=response.status_code<500, (route,response.status_code,response.text[:100])
+E   AssertionError: ('save', 500, 'Internal Server Error')
+E   assert 500 < 500
+E    +  where 500 = <Response [500 Internal Server Error]>.status_code
+___________ test_missing_form_fields_are_client_errors[review-data2] ___________
+/tmp/tlvb-qa-20260908/test_qa_regressions.py:46: in test_missing_form_fields_are_client_errors
+    assert 400<=response.status_code<500, (route,response.status_code,response.text[:100])
+E   AssertionError: ('review', 500, 'Internal Server Error')
+E   assert 500 < 500
+E    +  where 500 = <Response [500 Internal Server Error]>.status_code
+___________________ test_invalid_json_has_error_http_status ____________________
+/tmp/tlvb-qa-20260908/test_qa_regressions.py:52: in test_invalid_json_has_error_http_status
+    assert 400<=response.status_code<500, (response.status_code,response.text[-200:])
+E   AssertionError: (200, 'emo</strong>. Phiếu thử nghiệm; chưa phải mẫu văn bản hành chính được xác nhận.</p><h2>Chưa thực hiện được</h2><p>Expecting property name enclosed in double quotes: line 1 column 2 (char 1)</p></html>')
+E   assert 400 <= 200
+E    +  where 200 = <Response [200 OK]>.status_code
+________________ test_concurrent_save_does_not_block_event_loop ________________
+/tmp/tlvb-qa-20260908/test_qa_regressions.py:82: in test_concurrent_save_does_not_block_event_loop
+    assert lag<.5, f'event-loop heartbeat delayed {lag:.2f}s during 1.2s synthetic inference'
+E   AssertionError: event-loop heartbeat delayed 1.26s during 1.2s synthetic inference
+E   assert 1.2556858829998419 < 0.5
+=============================== warnings summary ===============================
+.venv/lib/python3.12/site-packages/starlette/testclient.py:53
+  /home/asus/Documents/ChatGPT/AI-agent for me/.venv/lib/python3.12/site-packages/starlette/testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED ../../../../../tmp/tlvb-qa-20260908/test_qa_regressions.py::test_failed_rerun_preserves_approved_version
+FAILED ../../../../../tmp/tlvb-qa-20260908/test_qa_regressions.py::test_stale_run_cannot_supersede_newer_version
+FAILED ../../../../../tmp/tlvb-qa-20260908/test_qa_regressions.py::test_missing_form_fields_are_client_errors[manual-data0]
+FAILED ../../../../../tmp/tlvb-qa-20260908/test_qa_regressions.py::test_missing_form_fields_are_client_errors[save-data1]
+FAILED ../../../../../tmp/tlvb-qa-20260908/test_qa_regressions.py::test_missing_form_fields_are_client_errors[review-data2]
+FAILED ../../../../../tmp/tlvb-qa-20260908/test_qa_regressions.py::test_invalid_json_has_error_http_status
+FAILED ../../../../../tmp/tlvb-qa-20260908/test_qa_regressions.py::test_concurrent_save_does_not_block_event_loop
+7 failed, 1 warning in 4.01s

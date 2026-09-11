@@ -221,3 +221,12 @@ Kết luận trung thực: prompt đang thiếu mô tả schema là một lỗi 
 - Chưa thử model lớn hơn: RAM khả dụng chỉ còn ~1,0 GiB, một model 1,7B Q4 đã ~1,1 GB. Cần chốt phương án phần cứng/model trước, không âm thầm tải.
 - Chưa chặn egress để chứng minh không gửi nguồn ra ngoài. `httpx` đã đặt `trust_env=False` và chỉ gọi loopback, nhưng đó là đọc mã chứ chưa phải bằng chứng chạy.
 - Đã **tắt Ollama** sau khi đo, máy chỉ còn ~1 GiB khả dụng.
+
+## 2026-09-11 — claude/prompt-extraction — chốt cách trích xuất
+
+- Nhánh `claude/prompt-extraction`, base `dc36b5d` trên `main`.
+- Bộ 8 văn bản chấm ngày 09/09 đã mất (chỉ nằm trong thư mục tạm của phiên đó). Dựng lại **trong repo**: `evals/extraction/`, 18 văn bản giả lập có đáp án, chia `dev`/`test`/`test2`; `test2` viết sau khi chốt mã vòng 2 (commit `c289df7`).
+- Đo 6 phương án trên model thật. Chốt: **số/cơ quan/ngày bằng quy tắc thể thức** (`header.py`), **việc bằng model** với prompt V5 (khoá tiếng Việt, mã ghép quote). Bộ giữ riêng sạch: qua hàng rào 6/6 (cũ 5/6), số/cơ quan/ngày 6/6 (cũ 0), việc thừa 2 (cũ 22), 14,8 s/văn bản (cũ 23,6).
+- `domain.py`, `validate_evidence` **không đổi**. Đã thử đột biến nắn giá trị bịa sang chữ thật khác: test đỏ.
+- **OOM:** lượt chạy đầu bị kernel giết `llama-server` (~2,2 GB ở `num_ctx` 8192) khi app ChatGPT/Claude desktop cùng mở. Anh Khang tắt app rồi chạy lại được. Cấu hình ứng dụng có cùng rủi ro — chưa sửa, cần đo token trước.
+- Còn chờ anh chốt: chặn theo trường thay vì cả phiếu; hạ `num_ctx`; model lớn hơn; bộ chấm bằng văn bản thật đã khử nhạy cảm. Đã tắt Ollama sau khi đo.

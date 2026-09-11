@@ -1,5 +1,9 @@
 # Kế hoạch trợ lý xử lý văn bản: AI agent + SLM + MCP
 
+## Cập nhật phân công 11/09/2026
+
+Gemini không còn là tác nhân phát triển được giao việc chủ động, theo yêu cầu người dùng sau thử CLI hết quota và AI Studio bị từ chối quyền chạy. Astra giữ kiến trúc, API, kiểm thử và điều phối; Claude giữ mã lõi và nhận gói phụ được chia riêng. Nội dung phân công Gemini ở bản kế hoạch cũ bên dưới hết hiệu lực; không xóa đóng góp đã nghiệm thu. Hướng SLM local điều phối worker GLM/DeepSeek/... vẫn giữ nguyên, không phụ thuộc Gemini làm thợ xây.
+
 ## Bổ sung thực hiện 10/09/2026 — SLM local điều phối swarm
 
 Theo yêu cầu anh Khang: **SLM đề xuất phân công → chương trình kiểm quyền và ngân sách → worker thực hiện → kiểm tra kết quả → anh duyệt**. Đây là hướng triển khai đã chọn, chưa phải tính năng đã chạy. Mục bổ sung này ưu tiên hơn các đề xuất/lịch trình cũ bên dưới khi có khác biệt; tiến độ thực tế xem `TIEN_DO.md`. Không đồng nhất số giai đoạn ở kế hoạch cũ với số PR GitHub.

@@ -1,5 +1,15 @@
 # Nhật ký phối hợp
 
+## 2026-09-11 — codex/retire-gemini-assignment — chốt phép thử AI Studio
+
+- Người dùng yêu cầu thử AI Studio; nếu không hiệu quả thì bỏ Gemini khỏi dự án, sau đó xác nhận rõ quyền gửi bốn mô tả MCP/catalogue/PolicyGate/phần chưa triển khai.
+- Base 045973a7b3d2576b6c9922ddceb944a838b04a7a; chỉ sửa kế hoạch, tiến độ, hợp đồng và hai phiếu Gemini cùng nhật ký này.
+- Đã chạy prompt nhỏ (4 FAQ + 2 ca NOT_RUN) trên AI Studio Playground, Gemini 3.5 Flash Lite, No API key selected. Trang trả permission denied và internal error, không có nội dung sinh. Đây là lỗi truy cập/vận hành, không phải bằng chứng chất lượng model kém.
+- CLI trước đó kết thúc lỗi hết quota ngày; bản sao riêng không có ba file output. Không tuyên bố G-CLI-01 hoàn thành.
+- Thực hiện điều kiện người dùng đặt: bỏ Gemini khỏi phân công chủ động, dừng hai phiếu giao; backlog việc phụ về Astra điều phối/Claude. Giữ nguyên code/test Gemini đã qua nghiệm thu và lịch sử.
+- Không gỡ phần mềm, không thu hồi GitHub App, không thay khóa hoặc bật trả phí. Không chạy thêm tác vụ Gemini.
+- Kiểm tra diff và phạm vi tài liệu; không chạy regression vì không sửa mã. Người dùng merge PR. Việc tiếp theo vẫn là snapshot sau PG-01.
+
 ## 2026-09-10 — codex/gemini-cli-housekeeping — chuẩn bị G-CLI-01
 
 - PR #21 đã merge, main `fec5955ec2449ed73690e8873402ec98d65e7410`: PG-01 đã vào repo, chưa tích hợp runtime.

@@ -1,5 +1,7 @@
 # G-CLI-01 — gói việc phụ cho Gemini CLI
 
+> Đã dừng gói Gemini từ 11/09/2026. CLI hết quota; phép thử nhỏ trên AI Studio bị permission denied, chưa có FAQ/audit/checklist để nghiệm thu. Giữ hợp đồng làm backlog tham khảo cho Astra/Claude, không tự chạy lại Gemini.
+
 Ngày giao: 10/09/2026. Người dùng yêu cầu Gemini CLI làm nhiều mục nhỏ. Astra chuẩn bị hợp đồng; **chưa xác nhận CLI đã nhận/chạy**. Base sản phẩm: `fec5955ec2449ed73690e8873402ec98d65e7410` (PG-01 đã merge qua PR #21).
 
 CLI 0.59.0 đã cài theo yêu cầu người dùng; kiểm version đạt. Lời nhắc kiểm tra không chứa repo bị từ chối mã 41 do chưa đăng nhập. Cần người dùng mở terminal, chạy `gemini`, chọn đăng nhập Google và hoàn tất trong trình duyệt; không gửi khóa/mật khẩu vào chat. Sau đó Astra mới khởi chạy gói trong bản sao riêng. Hướng dẫn chính thức: [cài đặt](https://geminicli.com/docs/get-started/installation/), [đăng nhập](https://geminicli.com/docs/get-started/authentication/).

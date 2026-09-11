@@ -1,5 +1,7 @@
 # Hợp đồng bảo mật provider — PSC-01
 
+> Cập nhật phân công 11/09/2026: Gemini đã được bỏ khỏi phân công phát triển chủ động; các gói phụ do Astra điều phối lại cho Claude hoặc tự xử lý theo từng buổi. Các đề xuất giao fixture cho Gemini bên dưới là lịch sử. Hợp đồng bảo mật và phạm vi provider không thay đổi.
+
 Ngày: 10/09/2026. Trạng thái: **thiết kế đề xuất, chưa triển khai**. Base: `881d1aa9c7280a4c5bf5c0aa6d7ab5bde34f4ad5` (PR #17 đã merge). Astra phụ trách thiết kế và nghiệm thu phần API khó; người dùng duyệt PR. Các giá trị mặc định bên dưới là lựa chọn của dự án, không phải giới hạn do nhà cung cấp công bố.
 
 ### Cập nhật triển khai — PG-01

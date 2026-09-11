@@ -1,5 +1,7 @@
 # Gói Gemini qua AI Studio — mỗi buổi một phần nhỏ
 
+> Ngừng giao việc từ 11/09/2026 theo yêu cầu người dùng. Giữ tài liệu làm lịch sử; không tự chạy gói này. Xem quyết định mới nhất trong TIEN_DO.md.
+
 Cập nhật 09/09/2026. Ưu tiên [TIEN_DO.md](../../TIEN_DO.md): không yêu cầu Gemini làm hết 12 ca trong một buổi.
 
 ## Cách dùng

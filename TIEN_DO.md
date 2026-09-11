@@ -1,5 +1,16 @@
 # Tiến độ từng ngày
 
+## Quyết định 11/09/2026 — bỏ Gemini khỏi phân công chủ động
+
+Theo yêu cầu người dùng sau thử CLI và AI Studio: không tiếp tục giao việc cho Gemini trong dự án. Astra phụ trách kiến trúc/API, tester và điều phối; Claude giữ lõi, nhận việc phụ khi có gói riêng và không chồng file. Các phân công Gemini ngày 09–10/09 bên dưới chỉ còn là lịch sử, không còn hiệu lực.
+
+- CLI: phiên 11/09 kết thúc với lỗi hết quota ngày, chưa tạo ba tài liệu G-CLI-01.
+- AI Studio: người dùng đã cấp quyền gửi đúng bốn mô tả; chạy thử trên Playground với Gemini 3.5 Flash Lite, không chọn API key. Kết quả hiển thị “Failed to generate content: permission denied. Please try again.” và “An internal error has occurred.”, không có FAQ.
+- Kết luận vận hành: Gemini không đáp ứng luồng làm việc hiện tại; chưa có đầu ra để kết luận chất lượng model. Không nâng gói hoặc bật trả phí.
+- G-CLI-01 dừng; FAQ/audit/checklist chưa hoàn thành, đưa về backlog do Astra điều phối. G01a cần sửa/G01c vẫn chưa nghiệm thu, không tự giao lại cho Gemini.
+- Giữ nguyên model_catalog và test đã nghiệm thu qua PR #17, giữ nguồn gốc tác giả và lịch sử. Không gỡ Gemini CLI/Desktop, không thay quyền GitHub App hoặc xóa tài khoản.
+- Việc lõi tiếp theo vẫn là snapshot bất biến và kiểm thay đổi nguồn sau PG-01; chưa triển khai trong phiên này.
+
 Cập nhật: 10/09/2026. Theo yêu cầu anh Nguyen Hong Khang: **mỗi ngày làm một ít, không chạy marathon**.
 
 ## Trạng thái mới nhất — 10/09/2026
@@ -53,7 +64,7 @@ Lộ trình HOS: baseline một worker → schema và bộ mẫu → benchmark S
 |---|---|
 | Codex — tổng công trình sư | Chốt hợp đồng, chia việc, kiểm tra đầu ra và tích hợp |
 | Claude — triển khai lõi | API/Swarm, trạng thái, DB/migration, concurrency, phiên bản và phê duyệt |
-| Gemini qua AI Studio — triển khai gói nhỏ | Dữ liệu giả lập, nội dung giao diện, mẫu theo đặc tả; code nhỏ khi có hợp đồng rõ |
+| Gemini | Đã loại khỏi phân công chủ động từ 11/09/2026; các gói cũ chỉ giữ làm lịch sử |
 | Anh Khang | Chốt yêu cầu nghiệp vụ, nghiệm thu mẫu và merge |
 
 Gemini đã có kết nối repo ở mức **đọc một chiều** từ 09/09/2026; xem mục "Kết nối AI Studio và GitHub" bên dưới. Đầu ra vẫn do anh đưa về để kiểm tra; **không coi trả lời trong AI Studio là đã sửa file hoặc chạy test**.

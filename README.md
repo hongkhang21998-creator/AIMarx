@@ -5,6 +5,10 @@
 
 Bản thử nghiệm một người dùng: nhập PDF có chữ, DOCX hoặc TXT → đọc nguồn qua FastMCP → LangGraph trích xuất và kiểm tra → phiếu xử lý, việc đề xuất và dự thảo DOCX → người dùng sửa và duyệt đúng phiên bản. Dữ liệu ở máy local, model dùng Ollama tại `127.0.0.1:11434`; không có fallback cloud.
 
+## Máy chủ hiện tại
+
+AIMarx hiện chạy local trên **laptop ASUS của anh Nguyen Hong Khang**, chỉ bind `127.0.0.1`; chưa mở truy cập LAN/Internet. Bản làm việc gốc vẫn ở máy ASUS. Từ ngày 11/09/2026, bản sao đã kiểm tra và khu vực tập kết dữ liệu SLM được đặt trên ổ **Data1000** tại `/run/media/asus/Data1000/AIMarx/`. Thư mục `data-lake/approved/` chỉ nhận mẫu đã được người dùng duyệt riêng cho mục đích học; việc nằm trên ổ Data1000 không tự biến một tài liệu thành dữ liệu huấn luyện.
+
 ## Chạy
 
 Python 3.12. Cài dependency từ bản khóa đã kiểm thử:

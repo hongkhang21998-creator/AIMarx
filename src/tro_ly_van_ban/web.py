@@ -19,6 +19,7 @@ def create_app(service=None):
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=["127.0.0.1", "localhost"])
     esc = lambda value: html.escape(str(value), quote=True)
     hidden = f'<input type="hidden" name="csrf" value="{token}">'
+    classifications = {"unknown": "Chưa phân loại — chỉ local", "internal": "Nội bộ — chỉ local", "restricted": "Hạn chế — chỉ local", "public": "Công khai — có thể xét dùng API", "synthetic": "Giả lập — có thể xét dùng API"}
 
     @app.middleware("http")
     async def security(request, call_next):
@@ -96,6 +97,8 @@ def create_app(service=None):
     @app.get("/", response_class=HTMLResponse)
     def home():
         body = '<form action="/upload" method="post" enctype="multipart/form-data">' + hidden + '<label>Nhập PDF, DOCX, TXT (tối đa 10 MB) <input type="file" name="file" required></label><button>Nhập tài liệu</button></form>'
+        choices = ''.join(f'<option value="{key}">{label}</option>' for key, label in classifications.items())
+        body = body.replace('<button>Nhập tài liệu</button>', '<label>Phân loại <select name="classification">' + choices + '</select></label><p>Chỉ chọn công khai/giả lập khi toàn bộ nội dung phù hợp. Nhập lại cùng file giữ nguyên nhãn cũ. API chưa được kết nối; hiện mọi tài liệu vẫn xử lý local.</p><button>Nhập tài liệu</button>')
         for doc in service.listing():
             body += f'<article><a href="/documents/{doc["id"]}">{esc(doc["name"])}</a> — {esc(doc["state"])}</article>'
         return page(body)
@@ -107,13 +110,14 @@ def create_app(service=None):
         if file is None or not hasattr(file, "read"):
             raise ValueError("Chưa chọn file")
         data = await file.read(MAX_BYTES + 1)
-        doc_id = await run_in_threadpool(service.ingest, file.filename or "file", data)
+        doc_id = await run_in_threadpool(service.ingest, file.filename or "file", data, str(form.get("classification", "unknown")))
         return RedirectResponse(f"/documents/{doc_id}", 303)
 
     @app.get("/documents/{doc_id}")
     def document(doc_id: str):
         doc = service.get(doc_id)
         body = f'<h2>{esc(doc["name"])}</h2><p>Trạng thái: {esc(doc["state"])}</p>'
+        body += '<p>Phân loại: ' + esc(classifications.get(doc["classification"], classifications["unknown"])) + '</p><p>Nơi xử lý hiện tại: máy local. API chưa được kết nối.</p>'
         # Trang thai duyet va ket qua lan chay la hai chuyen khac nhau; gop mot dong
         # thi loi trich xuat doc nhu thu da thay the trang thai duyet.
         if doc["error"]:

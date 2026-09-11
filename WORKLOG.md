@@ -1,5 +1,14 @@
 # Nhật ký phối hợp
 
+## 2026-09-11 — codex/document-classification — nền phân loại local/API
+
+- Astra; base `32f21a4`; sở hữu `service.py`, `web.py`, `tests/test_classification.py`, WORKLOG.
+- Người dùng chốt public/synthetic được xét API; internal/restricted/unknown giữ local. Provider/model/ngân sách đang chờ duyệt đề xuất, chưa cấp quyền chi tiền.
+- Thêm nhãn lúc nhập, lưu SQLite; migration tài liệu cũ thành unknown. File trùng giữ nhãn cũ, không nâng quyền khi nhập lại. UI có CSRF và hiển thị nhãn/nơi xử lý.
+- Đây mới là nền phân loại: chưa nối PolicyGate/runtime cloud, chưa có adapter/grant/ledger, chưa gửi dữ liệu ra API. Mọi nhãn hiện vẫn chạy local.
+- Test bao phủ nhãn hợp lệ/sai, restart, migration DB cũ, nhập trùng và upload CSRF. Regression được ghi trong PR.
+- Bước phụ thuộc tiếp theo: duyệt provider/model/ngân sách, rồi triển khai gateway PSC-01 và kiểm trước mỗi lần gửi. Người dùng merge PR; không đổi app đang chạy sang code chưa merge.
+
 ## 2026-09-11 — codex/retire-gemini-assignment — chốt phép thử AI Studio
 
 - Người dùng yêu cầu thử AI Studio; nếu không hiệu quả thì bỏ Gemini khỏi dự án, sau đó xác nhận rõ quyền gửi bốn mô tả MCP/catalogue/PolicyGate/phần chưa triển khai.

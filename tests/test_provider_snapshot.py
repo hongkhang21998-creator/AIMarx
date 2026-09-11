@@ -72,7 +72,21 @@ def prepare(conn, request, config=None, **kw):
 
 
 def claim(conn, snapshot_id, config=None, now_ms=T0 + 1000):
-    return ps.claim_for_dispatch(conn, snapshot_id, config=config or make_config(), now_ms=now_ms)
+    """Đứng thay `authorize_dispatch` (#32) cho snapshot cloud — CHƯA có grant.
+
+    Làm đúng như hàm ngoài thật: tự sở hữu transaction, gọi phần nội bộ, snapshot
+    chết thì để khối with commit trạng thái chết rồi mới báo lỗi.
+    """
+    died = None
+    with ps._transaction(conn) as tx:
+        try:
+            view = ps._claim_locked(tx, snapshot_id, config=config or make_config(), now_ms=now_ms,
+                                    expected_decision="CONSENT_REQUIRED")
+        except ps._SnapshotDied as exc:
+            died = exc
+    if died is not None:
+        raise died.error
+    return view
 
 
 def stored_state(conn, snapshot_id):
@@ -147,7 +161,7 @@ def test_local_model_with_internal_label_is_prepare_local(env):
     view = prepare(conn, extract(doc, blocks=("b2",), model_id="local-qwen"), config)
     assert view.policy_decision == "PREPARE_LOCAL" and view.target["data_destination"] == "local"
     assert view.effective_classification == "internal"
-    assert claim(conn, view.snapshot_id, config).state == "dispatching"
+    assert ps.claim_for_dispatch(conn, view.snapshot_id, config=config, now_ms=T0 + 1000).state == "dispatching"
 
 
 def test_cloud_target_without_endpoint_or_pricing_is_denied(env):
@@ -535,7 +549,7 @@ def _race_worker(db_path, snapshot_ids, barrier, out):
     for snapshot_id in snapshot_ids:
         barrier.wait(30)
         try:
-            ps.claim_for_dispatch(conn, snapshot_id, config=make_config(), now_ms=T0 + 1000)
+            claim(conn, snapshot_id)
             results.append("won")
         except AlreadyClaimed as err:
             results.append("lost:" + err.state)
@@ -681,7 +695,106 @@ def test_t17_errors_never_echo_content(env):
     view = prepare(conn, extract(secret_doc, blocks=("b2",), model_id="local-qwen"), local)
     conn.execute("UPDATE documents SET classification='public' WHERE id=?", (secret_doc,))
     with pytest.raises(SnapshotError) as err:
-        claim(conn, view.snapshot_id, local)
+        ps.claim_for_dispatch(conn, view.snapshot_id, config=local, now_ms=T0 + 1000)
     errors.append(err.value)
     for error in errors:
         assert SENTINEL not in f"{error!s} {error!r} {error.args} {error.reason}"
+
+
+# ---------- S1, S2 (Astra chốt 11/09, docs/GRANT_SCHEMA_OPTIONS.md) ----------
+
+def _local_snapshot(service, conn):
+    doc = service.ingest("noi-bo.txt", OTHER, "internal")
+    config = make_config(cloud_enabled=False)
+    return prepare(conn, extract(doc, blocks=("b2",), model_id="local-qwen"), config), config
+
+
+@pytest.mark.parametrize("now_ms", [T0 + 1000, T0 + TTL + 1])  # còn hạn và đã hết hạn
+def test_s1_public_claim_refuses_cloud_snapshot_and_changes_nothing(env, now_ms):
+    _, doc, conn = env
+    view = prepare(conn, extract(doc))
+    with pytest.raises(SnapshotError) as err:
+        ps.claim_for_dispatch(conn, view.snapshot_id, config=make_config(), now_ms=now_ms)
+    assert (err.value.code, err.value.reason) == ("CONSENT_REQUIRED", "GRANT_REQUIRED")
+    # Sai đường thì không được làm chết snapshot: người dùng vẫn xác nhận được qua đường grant.
+    assert stored_state(conn, view.snapshot_id) == ("prepared", None)
+    assert claim(conn, view.snapshot_id).state == "dispatching"
+
+
+def test_s1_gateway_path_refuses_local_snapshot(env):
+    service, _, conn = env
+    view, config = _local_snapshot(service, conn)
+    with pytest.raises(SnapshotError) as err:
+        claim(conn, view.snapshot_id, config)
+    assert (err.value.code, err.value.reason) == ("INVALID_REQUEST", "NOT_CONSENT_SNAPSHOT")
+    assert stored_state(conn, view.snapshot_id) == ("prepared", None)
+
+
+def test_s2_internal_claim_needs_a_live_ticket_not_just_a_transaction(env):
+    _, doc, conn = env
+    view = prepare(conn, extract(doc))
+    kwargs = {"config": make_config(), "now_ms": T0 + 1000, "expected_decision": "CONSENT_REQUIRED"}
+    conn.execute("BEGIN IMMEDIATE")  # có transaction IMMEDIATE, nhưng không do _transaction mở
+    try:
+        with pytest.raises(RuntimeError):
+            ps._claim_locked(conn, view.snapshot_id, **kwargs)
+    finally:
+        conn.execute("ROLLBACK")
+    with ps._transaction(conn) as tx:
+        pass
+    with pytest.raises(RuntimeError):  # vé của transaction đã kết thúc
+        ps._claim_locked(tx, view.snapshot_id, **kwargs)
+    assert stored_state(conn, view.snapshot_id) == ("prepared", None)
+
+
+def test_s2_inner_function_never_commits(env, tmp_path):
+    _, doc, conn = env
+    view = prepare(conn, extract(doc))
+    reader = sqlite3.connect(tmp_path / "state.sqlite3", isolation_level=None)
+    try:
+        with ps._transaction(conn) as tx:
+            ps._claim_locked(tx, view.snapshot_id, config=make_config(), now_ms=T0 + 1000, expected_decision="CONSENT_REQUIRED")
+            # Tiến trình khác vẫn thấy prepared: dispatching chưa được commit.
+            assert stored_state(reader, view.snapshot_id)[0] == "prepared"
+        assert stored_state(reader, view.snapshot_id)[0] == "dispatching"
+    finally:
+        reader.close()
+
+
+def test_s2_failure_after_claim_rolls_back_snapshot_and_bookkeeping_together(env):
+    # Điều kiện 4 của Astra: không bao giờ commit snapshot dispatching mà grant chưa consumed.
+    _, doc, conn = env
+    view = prepare(conn, extract(doc))
+    conn.execute("CREATE TABLE grant_probe(state TEXT)")
+    with pytest.raises(RuntimeError, match="bước grant hỏng"):
+        with ps._transaction(conn) as tx:
+            ps._claim_locked(tx, view.snapshot_id, config=make_config(), now_ms=T0 + 1000, expected_decision="CONSENT_REQUIRED")
+            conn.execute("INSERT INTO grant_probe VALUES('consumed')")
+            raise RuntimeError("bước grant hỏng")
+    assert stored_state(conn, view.snapshot_id) == ("prepared", None)
+    assert conn.execute("SELECT count(*) FROM grant_probe").fetchone()[0] == 0
+
+
+@pytest.mark.parametrize("outer_commits", [True, False])
+def test_s2_death_is_committed_only_by_the_owner_and_together_with_its_writes(env, outer_commits):
+    _, doc, conn = env
+    view = prepare(conn, extract(doc))
+    conn.execute("UPDATE documents SET classification='internal' WHERE id=?", (doc,))
+    conn.execute("CREATE TABLE grant_probe(state TEXT)")
+    with pytest.raises((SnapshotError, ps._SnapshotDied)):
+        died = None
+        with ps._transaction(conn) as tx:
+            try:
+                ps._claim_locked(tx, view.snapshot_id, config=make_config(), now_ms=T0 + 1000, expected_decision="CONSENT_REQUIRED")
+            except ps._SnapshotDied as exc:
+                conn.execute("INSERT INTO grant_probe VALUES('voided')")
+                if not outer_commits:
+                    raise
+                died = exc
+        raise died.error
+    if outer_commits:
+        assert stored_state(conn, view.snapshot_id) == ("invalidated", "CLASSIFICATION_CHANGED")
+        assert conn.execute("SELECT state FROM grant_probe").fetchall() == [("voided",)]
+    else:
+        assert stored_state(conn, view.snapshot_id) == ("prepared", None)
+        assert conn.execute("SELECT count(*) FROM grant_probe").fetchone()[0] == 0

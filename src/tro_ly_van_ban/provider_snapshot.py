@@ -54,6 +54,7 @@ _MESSAGES = {
     "STALE_REQUEST": "Nguồn hoặc cấu hình đã thay đổi; hãy chuẩn bị lại",
     "CONSENT_EXPIRED": "Bản xem trước đã hết hạn; hãy chuẩn bị lại",
     "LEDGER_UNAVAILABLE": "Kho dữ liệu đang bận hoặc không dùng được; thử lại sau",
+    "CONSENT_REQUIRED": "Cần người dùng xác nhận trước khi gửi ra ngoài",
 }
 
 # Khung soạn thảo tối thiểu để khoá hình dạng payload `draft`. Chưa đánh giá chất
@@ -101,9 +102,30 @@ class AlreadyClaimed(SnapshotError):
         self.state = state
 
 
-class _CommitThenRaise(Exception):
+class _SnapshotDied(Exception):
+    """`_claim_locked` đã GHI trạng thái chết vào transaction nhưng không commit.
+
+    Hàm sở hữu transaction chọn: bắt lỗi này để khối `with` kết thúc bình thường
+    (commit trạng thái chết, cùng với phần của nó như grant `voided`), hoặc để lỗi
+    lan ra (rollback toàn bộ). Không có cách nào commit riêng một nửa.
+    """
+
     def __init__(self, error):
         self.error = error
+
+
+class _Tx:
+    """Vé chứng minh transaction do `_transaction` mở bằng BEGIN IMMEDIATE.
+
+    `conn.in_transaction` chỉ nói có transaction, không nói là IMMEDIATE, cũng không
+    nói ai sở hữu nó. Hàm nội bộ đòi vé này thay vì tin kết nối.
+    """
+
+    __slots__ = ("conn", "active")
+
+    def __init__(self, conn):
+        self.conn = conn
+        self.active = True
 
 
 @dataclass(frozen=True)
@@ -364,29 +386,38 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
 
 
 @contextlib.contextmanager
-def _immediate(conn):
-    """Kiểm và ghi trong CÙNG một transaction. Tách ra thì hai tiến trình cùng thắng
-    (đo trên ổ Data1000: 10/10 lượt, SNAPSHOT_CONTRACT mục 3.4)."""
+def _transaction(conn):
+    """Transaction do hàm ngoài sở hữu: BEGIN IMMEDIATE, rồi commit khi khối kết thúc
+    bình thường, rollback khi có lỗi. Hàm bên trong nhận `_Tx`, không bao giờ tự
+    commit hay rollback.
+
+    Kiểm và ghi phải trong CÙNG một transaction: tách ra thì hai tiến trình cùng
+    thắng (đo trên ổ Data1000: 10/10 lượt, SNAPSHOT_CONTRACT mục 3.4).
+    """
     if conn.in_transaction:
-        raise RuntimeError("Kết nối đang có transaction mở; snapshot cần tự mở BEGIN IMMEDIATE")
+        raise RuntimeError("Kết nối đang có transaction mở; gateway cần tự mở BEGIN IMMEDIATE")
     conn.execute(f"PRAGMA busy_timeout={int(BUSY_TIMEOUT_MS)}")
     try:
         conn.execute("BEGIN IMMEDIATE")
     except sqlite3.OperationalError:
         raise SnapshotError("LEDGER_UNAVAILABLE", "DB_BUSY") from None
+    tx = _Tx(conn)
     try:
         ensure_schema(conn)  # trong transaction: DB bận thì ra LEDGER_UNAVAILABLE, không ra lỗi thô
-        yield
-    except _CommitThenRaise as signal:
-        # Snapshot chết thì ghi lại vì sao nó chết, để lần gọi sau khỏi kiểm lại.
-        conn.execute("COMMIT")
-        raise signal.error from None
+        yield tx
     except BaseException:
+        tx.active = False
         # SQLite có thể đã tự rollback (đầy đĩa, I/O); ROLLBACK lúc đó sẽ che mất lỗi gốc.
         if conn.in_transaction:
             conn.execute("ROLLBACK")
         raise
+    tx.active = False
     conn.execute("COMMIT")
+
+
+def _require_tx(tx):
+    if type(tx) is not _Tx or not tx.active or not tx.conn.in_transaction:
+        raise RuntimeError("Hàm nội bộ của gateway chỉ chạy trong transaction do _transaction mở")
 
 
 _COLUMNS = "snapshot_id, state, end_reason, record, record_sha256, payload, payload_sha256"
@@ -440,7 +471,7 @@ def prepare_snapshot(conn, request: dict, *, config: TrustedConfig, now_ms: int,
             raise _invalid("PROMPT_LABEL")
         prompt_label = prompt_classification
     _validate_config(config)
-    with _immediate(conn):
+    with _transaction(conn):
         sources, chosen_all, block_labels = [], [], []
         for selection in req["sources"]:
             found = _read_source(conn, selection["document_id"])
@@ -504,78 +535,109 @@ def load_snapshot(conn, snapshot_id: str) -> SnapshotView:
 
 
 def claim_for_dispatch(conn, snapshot_id: str, *, config: TrustedConfig, now_ms: int) -> SnapshotView:
-    """Kiểm lại mọi điều kiện rồi chuyển `prepared` → `dispatching`, đúng một lần.
+    """Claim snapshot **local** (`PREPARE_LOCAL`): kiểm lại mọi điều kiện rồi
+    `prepared` → `dispatching`, đúng một lần.
+
+    Snapshot cloud (`CONSENT_REQUIRED`) bị từ chối và không đổi gì: đường cloud
+    duy nhất là `authorize_dispatch` của module grant (#32), nơi grant, ngân sách và
+    snapshot cùng một transaction. Hàm này không được là đường tắt vòng qua đó.
 
     Caller chỉ đưa `snapshot_id`: payload không bao giờ được nhận lại từ caller, và
-    adapter chỉ được gửi `payload_bytes` của view trả về. Thắng claim **không** phải
-    quyền gửi — grant (#32) và giữ ngân sách phải cùng transaction này, chưa có.
+    adapter chỉ được gửi `payload_bytes` của view trả về.
     """
     _check_id(snapshot_id)
     _check_now(now_ms)
     _validate_config(config)
-    with _immediate(conn):
-        row = _row(conn, snapshot_id)
-        if row is None:
-            raise _invalid("SNAPSHOT_NOT_FOUND")
-        _, state, _, record, record_sha256, payload, payload_sha256 = row
-        if state != "prepared":
-            raise AlreadyClaimed(state)
-        rec = json.loads(record)
-
-        def dead(new_state, reason, code):
-            conn.execute("UPDATE provider_snapshots SET state=?, end_reason=?, ended_at_ms=?"
-                         " WHERE snapshot_id=? AND state='prepared'", (new_state, reason, now_ms, snapshot_id))
-            raise _CommitThenRaise(SnapshotError(code, reason))
-
-        if now_ms >= rec["expires_at_ms"] or now_ms < rec["created_at_ms"]:
-            dead("expired", "EXPIRED", "CONSENT_EXPIRED")
-        # Chỉ bắt hỏng hoặc sửa tay vụng: ai sửa được DB thì cũng sửa được hash.
-        if (payload is None or _sha(bytes(payload)) != payload_sha256 or _sha(bytes(record)) != record_sha256
-                or rec["payload_sha256"] != payload_sha256):
-            dead("invalidated", "PAYLOAD_INTEGRITY", "STALE_REQUEST")
-        block_labels = []
-        for source in rec["sources"]:
-            found = _read_source(conn, source["document_id"])
-            if found is None:
-                dead("invalidated", "SOURCE_CHANGED", "STALE_REQUEST")
-            blocks, warnings, raw_label, version = found
-            try:
-                label = _label(raw_label)
-            except SnapshotError:
-                label = None
-            if label != source["classification"]:
-                dead("invalidated", "CLASSIFICATION_CHANGED", "STALE_REQUEST")
-            if version != source["document_version"]:
-                dead("invalidated", "VERSION_CHANGED", "STALE_REQUEST")
-            chosen = _chosen(blocks, source["block_ids"])
-            if requires_ocr(blocks, warnings) or chosen is None or _sha(canonical_json(chosen)) != source["blocks_sha256"]:
-                dead("invalidated", "SOURCE_CHANGED", "STALE_REQUEST")
-            block_labels.extend([label] * len(chosen))
+    died = None
+    with _transaction(conn) as tx:
         try:
-            current = _current_revisions(rec["operation"], config)
-        except ValueError:  # catalogue hiện hành hỏng
-            current = None
-        if current != rec["revisions"]:
-            dead("invalidated", "REVISION_CHANGED", "STALE_REQUEST")
-        decision = evaluate_policy({"operation": rec["operation"], "model_id": rec["target"]["model_id"]},
-                                   models=list(config.models), cloud_enabled=config.cloud_enabled,
-                                   prompt_classification=rec["prompt_classification"],
-                                   source_classifications=tuple(block_labels))
-        if decision.value != rec["policy_decision"]:
-            dead("invalidated", "POLICY_CHANGED", "STALE_REQUEST")
-        # (#32) tiêu thụ grant và (ledger) giữ ngân sách phải nằm ĐÚNG chỗ này.
-        moved = conn.execute("UPDATE provider_snapshots SET state='dispatching' WHERE snapshot_id=? AND state='prepared'",
-                             (snapshot_id,)).rowcount
-        if moved != 1:  # CAS là lớp thứ hai, độc lập với khoá
-            raise AlreadyClaimed(_row(conn, snapshot_id)[1])
-        row = _row(conn, snapshot_id)
+            view = _claim_locked(tx, snapshot_id, config=config, now_ms=now_ms, expected_decision="PREPARE_LOCAL")
+        except _SnapshotDied as exc:
+            died = exc  # khối with kết thúc bình thường → commit trạng thái chết
+    if died is not None:
+        raise died.error
+    return view
+
+
+def _claim_locked(tx, snapshot_id, *, config, now_ms, expected_decision) -> SnapshotView:
+    """Phần kiểm + CAS của claim, NỘI BỘ gateway. Không được UI, MCP hay adapter gọi.
+
+    Chạy trong transaction do hàm ngoài sở hữu (`_Tx`), không commit, không rollback:
+    - thành công: snapshot đã `dispatching` **trong transaction**; hàm ngoài làm tiếp
+      phần của nó (tiêu thụ grant, giữ ngân sách) rồi mới commit cả khối;
+    - snapshot chết: đã ghi `expired`/`invalidated` trong transaction rồi ném
+      `_SnapshotDied`; hàm ngoài chọn commit (kèm phần của nó) hay rollback;
+    - lỗi khác (không tìm thấy, đã claim, sai loại snapshot): chưa ghi gì.
+    """
+    _require_tx(tx)
+    conn = tx.conn
+    row = _row(conn, snapshot_id)
+    if row is None:
+        raise _invalid("SNAPSHOT_NOT_FOUND")
+    _, state, _, record, record_sha256, payload, payload_sha256 = row
+    if state != "prepared":
+        raise AlreadyClaimed(state)
+    rec = json.loads(record)
+    # Sai đường thì từ chối trước mọi phép kiểm, để không làm chết snapshot của người khác.
+    if rec["policy_decision"] != expected_decision:
+        if rec["policy_decision"] == "CONSENT_REQUIRED":
+            raise SnapshotError("CONSENT_REQUIRED", "GRANT_REQUIRED")
+        raise _invalid("NOT_CONSENT_SNAPSHOT")
+
+    def dead(new_state, reason, code):
+        conn.execute("UPDATE provider_snapshots SET state=?, end_reason=?, ended_at_ms=?"
+                     " WHERE snapshot_id=? AND state='prepared'", (new_state, reason, now_ms, snapshot_id))
+        raise _SnapshotDied(SnapshotError(code, reason))
+
+    if now_ms >= rec["expires_at_ms"] or now_ms < rec["created_at_ms"]:
+        dead("expired", "EXPIRED", "CONSENT_EXPIRED")
+    # Chỉ bắt hỏng hoặc sửa tay vụng: ai sửa được DB thì cũng sửa được hash.
+    if (payload is None or _sha(bytes(payload)) != payload_sha256 or _sha(bytes(record)) != record_sha256
+            or rec["payload_sha256"] != payload_sha256):
+        dead("invalidated", "PAYLOAD_INTEGRITY", "STALE_REQUEST")
+    block_labels = []
+    for source in rec["sources"]:
+        found = _read_source(conn, source["document_id"])
+        if found is None:
+            dead("invalidated", "SOURCE_CHANGED", "STALE_REQUEST")
+        blocks, warnings, raw_label, version = found
+        try:
+            label = _label(raw_label)
+        except SnapshotError:
+            label = None
+        if label != source["classification"]:
+            dead("invalidated", "CLASSIFICATION_CHANGED", "STALE_REQUEST")
+        if version != source["document_version"]:
+            dead("invalidated", "VERSION_CHANGED", "STALE_REQUEST")
+        chosen = _chosen(blocks, source["block_ids"])
+        if requires_ocr(blocks, warnings) or chosen is None or _sha(canonical_json(chosen)) != source["blocks_sha256"]:
+            dead("invalidated", "SOURCE_CHANGED", "STALE_REQUEST")
+        block_labels.extend([label] * len(chosen))
+    try:
+        current = _current_revisions(rec["operation"], config)
+    except ValueError:  # catalogue hiện hành hỏng
+        current = None
+    if current != rec["revisions"]:
+        dead("invalidated", "REVISION_CHANGED", "STALE_REQUEST")
+    decision = evaluate_policy({"operation": rec["operation"], "model_id": rec["target"]["model_id"]},
+                               models=list(config.models), cloud_enabled=config.cloud_enabled,
+                               prompt_classification=rec["prompt_classification"],
+                               source_classifications=tuple(block_labels))
+    if decision.value != rec["policy_decision"]:
+        dead("invalidated", "POLICY_CHANGED", "STALE_REQUEST")
+    # Hàm ngoài (authorize_dispatch, #32) tiêu thụ grant và giữ ngân sách SAU dòng này, cùng transaction.
+    moved = conn.execute("UPDATE provider_snapshots SET state='dispatching' WHERE snapshot_id=? AND state='prepared'",
+                         (snapshot_id,)).rowcount
+    if moved != 1:  # CAS là lớp thứ hai, độc lập với khoá
+        raise AlreadyClaimed(_row(conn, snapshot_id)[1])
+    row = _row(conn, snapshot_id)
     return _view(row)
 
 
 def _end(conn, snapshot_id, from_state, to_state, reason, now_ms):
     _check_id(snapshot_id)
     _check_now(now_ms)
-    with _immediate(conn):
+    with _transaction(conn):
         moved = conn.execute("UPDATE provider_snapshots SET state=?, end_reason=?, ended_at_ms=?"
                              " WHERE snapshot_id=? AND state=?", (to_state, reason, now_ms, snapshot_id, from_state)).rowcount
         if moved != 1:
@@ -606,7 +668,7 @@ def purge(conn, *, now_ms: int) -> int:
     _check_now(now_ms)
     ensure_schema(conn)
     cutoff = now_ms - PURGE_AFTER_MS
-    with _immediate(conn):
+    with _transaction(conn):
         conn.execute("UPDATE provider_snapshots SET state='expired', end_reason='EXPIRED', ended_at_ms=expires_at_ms"
                      " WHERE state='prepared' AND expires_at_ms <= ?", (cutoff,))
         placeholders = ",".join("?" * len(_TERMINAL))

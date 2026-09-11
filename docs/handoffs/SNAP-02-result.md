@@ -10,16 +10,24 @@ Triển khai toàn bộ hợp đồng `docs/SNAPSHOT_CONTRACT.md`:
 
 - `canonical_json`: kiểu đóng (không số thực, không tuple/bytes/subclass, số nguyên trong ±(2⁵³−1)), không chuẩn hoá Unicode, chỉ sắp khoá object.
 - `prepare_snapshot`: kiểm `PrepareRequest` đóng; trong **một** `BEGIN IMMEDIATE` đọc tài liệu, nhãn, phiên bản từ DB, dựng payload, gọi `evaluate_policy`, rồi mới ghi. Bị từ chối thì không ghi gì.
-- `claim_for_dispatch`: nhận **chỉ** `snapshot_id`; kiểm lại hạn, hash payload **và** bản ghi, từng nguồn (nhãn, phiên bản, block), đủ 8 revision, đánh giá lại policy; rồi `prepared → dispatching` bằng CAS, cùng transaction. Hỏng thì ghi `invalidated`/`expired` kèm lý do rồi mới báo lỗi.
+- `claim_for_dispatch` (**chỉ snapshot local**) và `_claim_locked` (nội bộ gateway): nhận **chỉ** `snapshot_id`; kiểm lại hạn, hash payload **và** bản ghi, từng nguồn (nhãn, phiên bản, block), đủ 8 revision, đánh giá lại policy; rồi `prepared → dispatching` bằng CAS, cùng transaction. Xem mục "Sửa theo quyết định S1/S2".
 - `finish`, `cancel`, `purge`, `load_snapshot`, `ensure_schema`. Bảng riêng `provider_snapshots`, không đụng bảng của `Service`.
+
+## Sửa theo quyết định S1/S2 (Astra chốt 11/09, `docs/GRANT_SCHEMA_OPTIONS.md`)
+
+- **S1 — không có đường tắt cho cloud.** `claim_for_dispatch` từ chối snapshot `CONSENT_REQUIRED` bằng `CONSENT_REQUIRED` (`GRANT_REQUIRED`) **trước mọi phép kiểm**, không đổi gì trên snapshot — kể cả khi snapshot đã hết hạn — để người dùng vẫn xác nhận được qua đường grant. Đường cloud duy nhất sẽ là `authorize_dispatch` của #32; trước khi có ledger, đường đó vẫn chưa được gửi mạng.
+- **S2 — hàm ngoài sở hữu transaction.** Theo điều kiện 1 của Astra, `conn.in_transaction` không đủ. `_transaction(conn)` là nơi **duy nhất** mở `BEGIN IMMEDIATE`; nó trao lại vé `_Tx`, commit khi khối kết thúc bình thường và rollback khi có lỗi. `_claim_locked(tx, …, expected_decision)` đòi đúng vé đó (kết nối trần hay vé của transaction đã đóng → `RuntimeError`), **không bao giờ commit hay rollback**.
+- **Không commit nửa chừng** (điều kiện 4). Snapshot chết thì `_claim_locked` chỉ ghi `expired`/`invalidated` vào transaction rồi báo `_SnapshotDied`; hàm ngoài chọn commit (cùng phần của nó, như grant `voided`) hoặc rollback cả khối. Cơ chế cũ `_CommitThenRaise` — hàm trong ra lệnh commit — đã bỏ. Không có đường nào commit `dispatching` riêng khỏi bước grant.
+- `_claim_locked` và `_transaction` là **nội bộ gateway**, không được UI, MCP hay adapter gọi (điều kiện 2). Python không chặn được việc import tên có gạch dưới; ranh giới này giữ bằng quy ước và review.
 
 ## Kiểm tra
 
 | Phép thử | Kết quả |
 |---|---|
-| `pytest -q tests/test_provider_snapshot.py` | 86 passed |
-| `pytest -q tests docs` | 389 passed, 1 skipped (303 cũ + 86 mới) |
-| Cùng bộ, `--basetemp` trên ổ Data1000 (NTFS) | 389 passed, 1 skipped |
+| `pytest -q tests/test_provider_snapshot.py` | 94 passed (thêm 8 test S1/S2) |
+| `pytest -q tests docs` | 397 passed, 1 skipped (303 cũ + 94 mới) |
+| Cùng bộ, `--basetemp` trên ổ Data1000 (NTFS) | 397 passed, 1 skipped |
+| Tiến trình khác đọc DB **trong lúc** hàm ngoài chưa commit | Vẫn thấy `prepared` — chứng minh `_claim_locked` không tự commit |
 | T13 (hai **tiến trình** `spawn`, 20 snapshot) lặp 10 lần | 10/10 đạt, mỗi snapshot đúng một bên thắng, bên thua nhận trạng thái chứ không nhận lỗi thô |
 | Ví dụ mục 10 của hợp đồng | Khớp từng hash: `blocks_sha256` 81e826…, 3.488 byte, `payload_sha256` 8d31cb…, schema b0f3d8…, catalogue ab02a3… |
 
@@ -35,8 +43,14 @@ Triển khai toàn bộ hợp đồng `docs/SNAPSHOT_CONTRACT.md`:
 | Nhận nhãn từ request | Có — T4 |
 | Purge cả `dispatching` | Có — T16 |
 | Ghi snapshot khi policy từ chối | Có — 7 test |
+| `_claim_locked` tự commit | Có — 2 test S2 |
+| Đường công khai claim được snapshot cloud | Có — 3 test S1 |
+| Bỏ kiểm vé transaction | Có — test S2 |
+| Hàm ngoài commit cả khi có lỗi | Có — 2 test S2 |
 | **Chỉ bỏ CAS, giữ `BEGIN IMMEDIATE`** | **Không** — đúng thiết kế: khoá tự nó đã chặn thắng hai lần, CAS là lớp dự phòng thứ hai nên không tách riêng được |
-| **Commit ngay sát trước lệnh ghi** | **Không** — khe chỉ vài micro giây, không có lời gọi nào ở giữa để test nới ra. Chỗ đó chính là nơi #32 chèn bước tiêu thụ grant; khi có, T13 nên nới khe ở đó |
+| **Commit sát trước lệnh ghi *và* bỏ CAS** | **Không** — phải hỏng **cả hai** lớp cùng lúc; còn CAS thì tiến trình vào sau thấy `rowcount = 0` và thua. Khe chỉ vài micro giây, không có lời gọi nào ở giữa để nới. Bản trước của file này ghi rằng tách hàm sẽ cho chỗ nới khe — không đúng: bước grant nằm **sau** CAS, ngoài `_claim_locked` |
+
+Tổng: 16/18 đột biến bị bắt.
 
 Lần đầu T13 **không** bắt được đột biến tách transaction (lọt 20/20 lượt): khe quá hẹp, tiến trình kia đang ngủ trong busy handler. Đã sửa bằng cách cho `evaluate_policy` chậm 20 ms **trong tiến trình con** — không thêm cửa hậu nào vào mã chạy thật.
 

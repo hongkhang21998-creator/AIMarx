@@ -94,6 +94,8 @@ class Service:
                 db.execute("ALTER TABLE versions ADD COLUMN draft_hash TEXT NOT NULL DEFAULT ''")
             if "error_kind" not in {row[1] for row in db.execute("PRAGMA table_info(documents)")}:
                 db.execute("ALTER TABLE documents ADD COLUMN error_kind TEXT NOT NULL DEFAULT ''")
+            if "classification" not in {row[1] for row in db.execute("PRAGMA table_info(documents)")}:
+                db.execute("ALTER TABLE documents ADD COLUMN classification TEXT NOT NULL DEFAULT 'unknown'")
 
     @contextlib.contextmanager
     def db(self):
@@ -130,7 +132,9 @@ class Service:
             result["approvals"] = [dict(x) for x in db.execute("SELECT * FROM approvals WHERE document_id=?", (document_id,))]
             return result
 
-    def ingest(self, name, data):
+    def ingest(self, name, data, classification="unknown"):
+        if type(classification) is not str or classification not in {"unknown", "internal", "restricted", "public", "synthetic"}:
+            raise ValueError("Phân loại tài liệu không hợp lệ")
         if not data or len(data) > MAX_BYTES:
             raise ValueError("File rỗng hoặc vượt 10 MB")
         suffix = Path(name).suffix.lower()
@@ -156,6 +160,7 @@ class Service:
             state = "needs_ocr" if requires_ocr(blocks, warnings) else "ready"
             with self.db() as db:
                 db.execute("INSERT INTO documents(id,name,suffix,blocks,warnings,state,error,error_kind) VALUES(?,?,?,?,?,?,?,?)", (digest, Path(name).name[:200], suffix, json.dumps(blocks, ensure_ascii=False), json.dumps(warnings, ensure_ascii=False), state, "", ""))
+                db.execute("UPDATE documents SET classification=? WHERE id=?", (classification, digest))
         return digest
 
     def run(self, document_id, expected_version=None):

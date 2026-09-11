@@ -4,6 +4,28 @@ Người soạn: Claude (Opus), 11/09/2026, theo yêu cầu của anh Khang: đ�
 
 Đây là **bảng lựa chọn**, chưa phải thiết kế đã chốt, chưa có dòng mã nào. Mỗi mục có phương án, lý do và một đề xuất; Astra có thể trả lời gọn kiểu `G1:A, G2:A, …` (mẫu ở cuối).
 
+## Kết quả chốt — 11/09/2026 (Astra, qua anh Khang)
+
+```text
+S1: A | S2: A
+G1: A | G2: A | G3: A | G4: A
+G5: đồng ý các trạng thái, không hồi sinh issued
+G6: A | G7: A | G8: A | G9: A
+G10: theo bảng, kèm điều kiện 4 và 5 dưới đây
+G11: A | G12: A, kèm điều kiện 6 dưới đây
+```
+
+Sáu điều kiện Astra yêu cầu ghi rõ vào thiết kế — **có hiệu lực cao hơn** chữ trong các bảng phương án bên dưới nếu có chỗ lệch:
+
+1. **S2 — `conn.in_transaction` chưa đủ.** Nó chỉ chứng minh có transaction, không chứng minh là `BEGIN IMMEDIATE`. Hàm ngoài phải **sở hữu** transaction; hàm bên trong không tự commit hay rollback. Kiểm snapshot, tiêu thụ grant và giữ ngân sách phải **cùng thành công hoặc cùng rollback**.
+2. **Không dời đường tắt sang `claim_locked`.** Đó là hàm nội bộ của gateway, không được UI, MCP hay adapter gọi trực tiếp. Đường công khai gọi cloud phải đi qua `authorize_dispatch`; **trước khi có ledger thì vẫn chưa được gửi mạng**.
+3. **G4 — bí mật lúc khởi động chỉ là định danh phiên tiến trình.** Nó không xác thực người đang bấm và không phân biệt các trình duyệt. Dùng được để xây và test grant; **khi bật cloud phải gắn với phiên người dùng đã xác thực**. MCP không được tự truyền chuỗi principal để giả làm UI.
+4. **G5/G10 — lỗi phải có quy tắc commit rõ.** Snapshot hết hiệu lực có thể cần lưu `voided`, nhưng **tuyệt đối không commit nửa chừng** khiến snapshot `dispatching` mà grant chưa `consumed`. Grant đã dùng chỉ trả trạng thái cũ **sau khi khớp token, principal và snapshot**, và không phát lại request.
+5. **G11 — bấm hai lần.** Vi phạm `UNIQUE(snapshot_id)` phải trả **trạng thái yêu cầu hiện có**, không phải lỗi SQLite thô, và không tạo lần gửi thứ hai.
+6. **G12 — giữ cả hồ sơ chưa đối soát.** Không chỉ giữ grant của snapshot `dispatching`; sau này request đã `failed` mà chi phí còn `unresolved` cũng phải giữ. Hash và principal vẫn là metadata cần bảo vệ (không log, không trả qua MCP).
+
+Đã áp vào PR #39 (commit `4acf954`): điều kiện 1, 2 và phần "không commit nửa chừng" của điều kiện 4 — `_transaction` là nơi duy nhất mở `BEGIN IMMEDIATE` và trao vé `_Tx`; `_claim_locked` đòi vé đó, không commit/rollback; snapshot chết chỉ được ghi trong transaction, hàm ngoài chọn commit hay rollback; `claim_for_dispatch` từ chối snapshot cloud. Điều kiện 3, 5, 6 và phần còn lại của 4 thuộc GRANT-01 (#32).
+
 ## Phần 1 — hai quyết định phải chốt TRƯỚC khi merge #39
 
 Hai điểm này làm đổi mã trong PR #39, nên chốt sau khi merge là phải mở thêm một PR sửa lại.
@@ -29,7 +51,9 @@ PSC-01 và hợp đồng snapshot (mục 7.2 bước 8) yêu cầu kiểm snapsh
 | B | Hook: `claim_for_dispatch(..., before_commit=callable)` gọi callable trước CAS | Ít sửa | Callback khó đọc, khó test, dễ bị truyền nhầm từ tầng ngoài |
 | C | Hai transaction: claim snapshot rồi mới tiêu thụ grant | Không sửa #39 | **Loại**: đúng dạng lỗi đã đo trên Data1000 (tách transaction → 10/10 lượt thắng đôi) |
 
-**Đề xuất: A**, làm luôn trong #39 cùng S1. Lợi thêm: sau khi tách, đột biến "commit sát trước lệnh ghi" đang lọt trong #39 sẽ có chỗ để test nới khe (bước tiêu thụ grant nằm ngay trước CAS).
+**Đề xuất: A**, làm luôn trong #39 cùng S1.
+
+> *Đính chính:* bản đầu của đề xuất này ghi thêm rằng tách hàm sẽ cho chỗ để test bắt đột biến "commit sát trước lệnh ghi". Không đúng: bước tiêu thụ grant nằm **sau** CAS, ngoài hàm nội bộ. Đột biến đó chỉ sống khi đồng thời bỏ cả CAS, xem `docs/handoffs/SNAP-02-result.md`.
 
 ## Phần 2 — schema grant cho GRANT-01 (#32)
 
@@ -183,7 +207,10 @@ def issue_grant(conn, snapshot_id, *, principal: str, now_ms: int) -> tuple[str,
     """(grant_id, token). Chỉ route xác nhận của UI gọi. Snapshot phải prepared, CONSENT_REQUIRED, còn hạn."""
 
 def authorize_dispatch(conn, snapshot_id, token, *, principal: str, config, now_ms: int) -> SnapshotView:
-    """Một BEGIN IMMEDIATE: kiểm grant → provider_snapshot.claim_locked → grant consumed. (ledger chèn vào đây)"""
+    """Sở hữu transaction (điều kiện 1): with _transaction(conn) as tx → kiểm grant → _claim_locked(tx, …,
+    expected_decision="CONSENT_REQUIRED") → grant consumed → (ledger giữ ngân sách). Snapshot chết
+    (_SnapshotDied) → grant voided rồi commit cả hai; lỗi khác → rollback cả khối (điều kiện 4).
+    Trước khi có ledger: KHÔNG trả thứ gì cho phép adapter gửi mạng (điều kiện 2)."""
 
 def revoke(conn, grant_id, *, now_ms: int) -> None: ...
 def revoke_all_unconsumed(conn, *, now_ms: int) -> int: ...   # nút "thu hồi hết"

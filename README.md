@@ -36,6 +36,11 @@ Tên model là cấu hình, không phải khuyến nghị chất lượng nghi�
 | `TLVB_MODE` | `ollama` (`demo` để thử không model) |
 | `TLVB_MODEL` | `qwen3:0.6b` |
 | `TLVB_PORT` | `8765` |
+| `TLVB_REQUIRED_MOUNT` | không đặt (không kiểm ổ) |
+
+**Kho bắt buộc trên ổ ngoài.** Đặt `TLVB_REQUIRED_MOUNT` là điểm gắn ổ thì UI và MCP chỉ khởi động khi `TLVB_DATA` là đường dẫn tuyệt đối nằm trên đúng ổ đó và ổ đang gắn; sai thì dừng với thông báo tiếng Việt và **không tạo kho mới**. Lý do: điểm gắn nằm dưới `/run` (tmpfs), rút ổ rồi khởi động lại có thể dựng một DB rỗng trong RAM. Máy ASUS dùng `TLVB_REQUIRED_MOUNT=/run/media/asus/Data1000` và `TLVB_DATA=/run/media/asus/Data1000/AIMarx/workspace/data`.
+
+`scripts/run-local.sh` và `run-local.ps1` đọc các dòng `TLVB_*=giá_trị` trong `.env` ở gốc repo (file riêng từng máy, không commit; mẫu ở `.env.example`). File chỉ được đọc như dữ liệu, không chạy như mã; biến đã đặt ở dòng lệnh thắng giá trị trong `.env`. MCP chạy qua client riêng nên phải đặt hai biến này trong cấu hình client.
 
 Chỉ chạy **một tiến trình UI, một worker**, giữ DB trên đĩa local. CLI luôn bind loopback. Không đưa qua reverse proxy hoặc mạng LAN: MVP dùng quyền tài khoản máy và token chống CSRF, chưa có đăng nhập nhiều người. `scripts/run-ollama.sh` dành cho bộ Ollama đã cài tại `.runtime/ollama/bin/ollama`, bật `OLLAMA_NO_CLOUD=1` và lưu model ở `.runtime/models`. Xem [vận hành](docs/DEPLOYMENT.md).
 

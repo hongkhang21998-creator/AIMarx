@@ -32,7 +32,7 @@ def create_mcp(service):
 
 
 def main():
-    create_mcp(Service(os.getenv("TLVB_DATA", "data"))).run(transport="stdio")
+    create_mcp(Service(os.getenv("TLVB_DATA", "data"), required_mount=os.getenv("TLVB_REQUIRED_MOUNT"))).run(transport="stdio")
 
 
 if __name__ == "__main__":

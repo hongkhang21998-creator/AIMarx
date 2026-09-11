@@ -1,55 +1,5 @@
 # Kế hoạch trợ lý xử lý văn bản: AI agent + SLM + MCP
 
-## Bổ sung thực hiện 10/09/2026 — SLM local điều phối swarm
-
-Theo yêu cầu anh Khang: **SLM đề xuất phân công → chương trình kiểm quyền và ngân sách → worker thực hiện → kiểm tra kết quả → anh duyệt**. Đây là hướng triển khai đã chọn, chưa phải tính năng đã chạy. Mục bổ sung này ưu tiên hơn các đề xuất/lịch trình cũ bên dưới khi có khác biệt; tiến độ thực tế xem `TIEN_DO.md`. Không đồng nhất số giai đoạn ở kế hoạch cũ với số PR GitHub.
-
-```mermaid
-flowchart TD
-  A[SLM local đề xuất phân công] --> B[Chương trình kiểm schema, quyền và ngân sách]
-  B --> C{Đủ điều kiện?}
-  C -->|Không| D[Dừng và báo lý do]
-  C -->|Có| E[Worker thực hiện qua provider adapter]
-  E --> F[Kiểm schema, nguồn và phiên bản]
-  F --> G[Anh xem, sửa và duyệt]
-```
-
-### Vai trò và giới hạn
-
-- SLM là bộ điều phối có phạm vi hẹp: phân loại trích xuất/soạn thảo/kiểm tra và đề xuất một workflow, worker/model trong danh sách đã cấu hình. Đề xuất chỉ gồm ID và tham chiếu nguồn, không có lệnh shell, URL, API key hay quyền tự cấp.
-- Chương trình là nơi quyết định có được thực thi hay không. Áp dụng [PSC-01](docs/PROVIDER_SECURITY_CONTRACT.md): classification, snapshot, grant từ người dùng, ngân sách, deadline và retry. `enabled=true` hoặc SLM nói “đã được duyệt” không cấp quyền gọi cloud.
-- Worker có thể local hoặc cloud. GLM, DeepSeek, Kimi, Qwen là các ứng viên; chỉ tích hợp từng provider sau khi xác minh API, giá, quyền dữ liệu và đo kết quả. Danh mục hiện mới hỗ trợ Ollama/DeepSeek/GLM; kế hoạch này không thêm provider vào runtime.
-- Bộ kiểm tra dùng quy tắc xác định cho schema, nguồn, phiên bản và quyền; model kiểm tra bổ sung chỉ cho ý kiến, không thay hàng rào hoặc người duyệt. Đầu ra sai bị chặn, không tự gọi vòng sửa không giới hạn.
-- Người dùng xác nhận gửi cloud trước mỗi payload theo PSC-01; bước duyệt cuối là quyền riêng cho dự thảo. Nếu muốn gọi worker kiểm tra cloud, payload đó cũng cần kiểm quyền, xác nhận và dự trù riêng. Chỉ chia ngân sách của job cha cho các bước, không cấp lại một ngân sách đầy đủ ở mỗi worker.
-- Nếu SLM trả sai schema/không hiểu, dừng hoặc dùng workflow cố định đã được cho phép từ trước, qua cùng bộ kiểm soát. Không đổi provider hoặc gửi thêm nội dung mà chưa được duyệt.
-
-### Trình tự thực hiện — chia thành các buổi nhỏ
-
-| Mã | Phụ thuộc và đầu việc | Điều kiện nghiệm thu |
-|---|---|---|
-| HOS-01 | Sau PolicyGate và các bảo vệ PSC-01: hoàn thiện đường chạy một worker theo workflow cố định | Một nghiệp vụ có nguồn và người duyệt; phí/quyền/timeout có test; có baseline chất lượng và chi phí |
-| HOS-02 | Sau HOS-01: chốt schema đề xuất và bộ mẫu phân công có đáp án | Gói thử ban đầu 30–50 yêu cầu tổng hợp gồm ca mơ hồ, ngoài phạm vi, injection; tách tập phát triển và tập giữ lại |
-| HOS-03 | Sau HOS-02: benchmark SLM có sẵn trên máy ở chế độ chỉ đề xuất, chưa thực thi | Đo chọn workflow đúng, JSON hợp lệ, ca cần hỏi lại, RAM đỉnh, p50/p95; so với bộ định tuyến cố định |
-| HOS-04 | Chỉ sau benchmark đạt: đưa SLM vào đường chạy có giới hạn | Ban đầu tối đa một worker/lần yêu cầu, không đệ quy; đề xuất sai không gọi tool; thu hồi/hết hạn/đổi phiên bản bị chặn |
-| HOS-05 | Sau HOS-04 ổn định: thử thêm worker kiểm tra | Giới hạn đề xuất hai lượt worker/job, tính cả retry vào dự trù và giới hạn attempts; chỉ giữ nếu cải thiện chất lượng hoặc thời gian người dùng sửa với chi phí chấp nhận được |
-| HOS-06 | Sau khi có dữ liệu phản hồi đủ tốt: xem xét fine-tune SLM | Có quyền dùng dữ liệu, đáp án người dùng duyệt, tập test độc lập và đánh giá hơn baseline; chưa mặc định huấn luyện trên laptop |
-
-Mỗi hàng là một mốc, có thể tách nhiều buổi; không giao cả bảng trong một ngày. PolicyGate vẫn là việc nhỏ tiếp theo ngay trước các mốc này. Chưa chốt ngày hoàn thành HOS hoặc tải model mới trong phiên lập kế hoạch.
-
-Ngưỡng pilot đề xuất cho HOS-03: đúng workflow ít nhất 90% và JSON hợp lệ ít nhất 95% trên tập giữ lại; công bố cả số mẫu và số lỗi, không dùng tỷ lệ trên mẫu nhỏ làm bảo đảm sản xuất. Mọi đề xuất tool/provider ngoài danh sách hoặc vượt quyền phải bị chương trình chặn 100% trong bộ test. Nếu không đạt, giữ workflow cố định; không đưa SLM vào vai trò điều phối thực thi. Chốt trần RAM/độ trễ sau kiểm kê máy và trước benchmark, không suy hiệu năng hiện tại từ lần thử model cũ.
-
-HOS-05 phải so trên cùng bộ mẫu với HOS-01, tính **tổng chi phí một kết quả đạt**, gồm token của các worker, retry và thời gian người dùng sửa. Hai model đồng ý không phải bằng chứng đúng. Không bắt buộc dùng agent-swarm upstream nếu workflow hiện có đáp ứng; lựa chọn tích hợp upstream vẫn là thiết kế ở PR #8 cần đối chiếu riêng.
-
-### SLM và dữ liệu học
-
-Chạy model có sẵn trên máy là bước đầu; fine-tune và huấn luyện từ đầu là việc khác. Không coi việc nối MCP hay gọi nhiều model là tự học. Chỉ đưa ví dụ có quyền sử dụng và đã được người dùng xác nhận vào bộ dữ liệu riêng, gồm yêu cầu, đề xuất, kết quả kiểm và phần sửa. Không dùng toàn bộ audit log hoặc đầu ra worker chưa duyệt làm đáp án. Quyền xuất dữ liệu SLM tách khỏi quyền gửi cloud; áp dụng PSC-01.
-
-### Phân công
-
-Astra chốt schema điều phối, hàng rào quyền/chi phí và benchmark; Claude giữ lõi service, phiên bản và tích hợp workflow theo hợp đồng; Gemini nhận fixture tổng hợp/hàm nhỏ có đường dẫn sở hữu rõ. Phần API, transaction và kiểm lỗi phối hợp nên dùng Astra với mức suy luận high khi bắt đầu tác vụ đó. Đây là phân công phát triển; SLM/worker là các model chạy trong sản phẩm. Mỗi gói có nhánh, test, WORKLOG và PR riêng; anh merge.
-
----
-
 Ngày đối chiếu nguồn: 08/09/2026. Trạng thái: đề xuất kỹ thuật; chưa cài đặt, chạy benchmark hoặc triển khai. Các đánh giá phù hợp bên dưới là nhận định thiết kế dựa trên README và tài liệu chính thức, chưa phải kết quả kiểm thử repo.
 
 ## 1. Quyết định đề xuất

@@ -4,10 +4,8 @@ import os
 import secrets
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse, JSONResponse
-from starlette.concurrency import run_in_threadpool
 from starlette.middleware.trustedhost import TrustedHostMiddleware
-from .model import ModelUnavailable
-from .service import Conflict, NotFound, Service
+from .service import Service
 from .parser import MAX_BYTES
 
 
@@ -46,52 +44,17 @@ def create_app(service=None):
         if not secrets.compare_digest(str(form.get("csrf", "")), token):
             from fastapi import HTTPException
             raise HTTPException(403, "CSRF không hợp lệ; tải lại trang")
-        typed = form.get("content")
-        if isinstance(typed, str):
-            request.state.typed = typed
         return form
-
-    def required(form, name):
-        """Đọc field bắt buộc, thiếu thì báo lỗi nhập liệu chứ không vỡ thành 500.
-
-        `form[name]` ném KeyError, mà KeyError là lỗi lập trình nên khung nâng
-        thành 500 — đổ lỗi cho máy chủ vì một biểu mẫu gửi thiếu.
-        """
-        value = form.get(name)
-        if value is None:
-            raise ValueError(f"Thiếu trường bắt buộc: {name}")
-        value = str(value)
-        if not value.strip():
-            raise ValueError(f"Trường bắt buộc không được để trống: {name}")
-        return value
-
-    def required_int(form, name):
-        raw = required(form, name)
-        try:
-            return int(raw)
-        except ValueError:
-            raise ValueError(f"Trường {name} phải là số nguyên, nhận được: {raw[:50]}") from None
 
     def warn_banner():
         return ''.join('<p class="warn"><b>Cảnh báo môi trường:</b> ' + esc(w) + '</p>' for w in getattr(service, "warnings", []))
 
-    def page(body, status=200):
-        return HTMLResponse('<!doctype html><html lang="vi"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Trợ lý văn bản</title><style>body{font:17px system-ui;max-width:1100px;margin:30px auto;padding:20px;background:#f5f7fa;color:#182b3a}textarea{width:100%;min-height:320px}pre{white-space:pre-wrap}button,input{padding:9px;margin:5px}article{background:white;padding:20px;margin:15px 0;border:1px solid #ccd}a{color:#075e8f}.warn{background:#fff3cd;border:1px solid #e0b000;padding:12px;margin:12px 0}</style><a href="/">Kho tài liệu</a> · <a href="/tasks">Sổ công việc</a><h1>Trợ lý văn bản local</h1><p>Chế độ: <strong>' + esc(service.mode) + '</strong>. Phiếu thử nghiệm; chưa phải mẫu văn bản hành chính được xác nhận.</p>' + warn_banner() + body + '</html>', status_code=status)
+    def page(body):
+        return HTMLResponse('<!doctype html><html lang="vi"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Trợ lý văn bản</title><style>body{font:17px system-ui;max-width:1100px;margin:30px auto;padding:20px;background:#f5f7fa;color:#182b3a}textarea{width:100%;min-height:320px}pre{white-space:pre-wrap}button,input{padding:9px;margin:5px}article{background:white;padding:20px;margin:15px 0;border:1px solid #ccd}a{color:#075e8f}.warn{background:#fff3cd;border:1px solid #e0b000;padding:12px;margin:12px 0}</style><a href="/">Kho tài liệu</a> · <a href="/tasks">Sổ công việc</a><h1>Trợ lý văn bản local</h1><p>Chế độ: <strong>' + esc(service.mode) + '</strong>. Phiếu thử nghiệm; chưa phải mẫu văn bản hành chính được xác nhận.</p>' + warn_banner() + body + '</html>')
 
     @app.exception_handler(ValueError)
     async def bad_value(request, exc):
-        # Phan loai o tang service, anh xa o day. Mac dinh la 400: da vao duoc
-        # handler nay nghia la mot rang buoc nghiep vu tu choi yeu cau, khong
-        # phai may chu hong. Loi lap trinh khong ke thua ValueError nen van di
-        # tiep thanh 500 chu khong bi nuot o day.
-        status = 404 if isinstance(exc, NotFound) else 409 if isinstance(exc, Conflict) else 400
-        body = '<h2>Chưa thực hiện được</h2><p>' + esc(exc) + '</p>'
-        typed = getattr(request.state, "typed", None)
-        if typed:
-            body += ('<p>Dữ liệu bạn vừa nhập vẫn ở đây — sửa rồi dán lại vào biểu mẫu, không phải gõ lại từ đầu.</p>'
-                     '<textarea readonly>' + esc(typed) + '</textarea>')
-        body += '<p><a href="' + esc(request.url.path) + '">Tải lại trang</a></p>'
-        return page(body, status)
+        return page('<h2>Chưa thực hiện được</h2><p>' + esc(exc) + '</p>')
 
     @app.get("/", response_class=HTMLResponse)
     def home():
@@ -107,22 +70,16 @@ def create_app(service=None):
         if file is None or not hasattr(file, "read"):
             raise ValueError("Chưa chọn file")
         data = await file.read(MAX_BYTES + 1)
-        doc_id = await run_in_threadpool(service.ingest, file.filename or "file", data)
+        doc_id = service.ingest(file.filename or "file", data)
         return RedirectResponse(f"/documents/{doc_id}", 303)
 
     @app.get("/documents/{doc_id}")
     def document(doc_id: str):
         doc = service.get(doc_id)
-        body = f'<h2>{esc(doc["name"])}</h2><p>Trạng thái: {esc(doc["state"])}</p>'
-        # Trang thai duyet va ket qua lan chay la hai chuyen khac nhau; gop mot dong
-        # thi loi trich xuat doc nhu thu da thay the trang thai duyet.
-        if doc["error"]:
-            nhan = "Model chưa sẵn sàng" if doc["error_kind"] == "model_unavailable" else "Lần xử lý gần nhất lỗi"
-            body += f'<p class="warn"><b>{nhan}:</b> {esc(doc["error"])} — trạng thái duyệt ở trên giữ nguyên.</p>'
-        body += f'<p>{esc("; ".join(doc["warnings"]))}</p>'
-        current = doc["latest"]["version"] if doc["latest"] else 0
-        body += f'<form action="/documents/{doc_id}/run" method="post">{hidden}<input type="hidden" name="version" value="{current}"><button>Trích xuất / thử lại (tạo phiên bản mới)</button></form>'
+        body = f'<h2>{esc(doc["name"])}</h2><p>Trạng thái: {esc(doc["state"])}. {esc(doc["error"])}</p><p>{esc("; ".join(doc["warnings"]))}</p>'
+        body += f'<form action="/documents/{doc_id}/run" method="post">{hidden}<button>Trích xuất / thử lại (tạo phiên bản mới)</button></form>'
         if doc["state"] != "needs_ocr":
+            current = doc["latest"]["version"] if doc["latest"] else 0
             body += f'<form action="/documents/{doc_id}/manual" method="post">{hidden}<input type="hidden" name="version" value="{current}"><button>Lập phiếu thủ công từ nguồn (bản mới)</button></form>'
         if doc["latest"]:
             latest = doc["latest"]
@@ -159,49 +116,29 @@ def create_app(service=None):
 
     @app.post("/documents/{doc_id}/run")
     async def run(doc_id: str, request: Request):
-        form = await checked_form(request)
-        version = required_int(form, "version")
+        await checked_form(request)
         try:
-            await run_in_threadpool(service.run, doc_id, version)
-        except (NotFound, Conflict):
-            # Loi cua yeu cau, khong phai ket qua lan chay. Tab cu phai nhan
-            # 404/409 de biet ma tai lai, chu khong phai mot cai 303 im lang.
-            raise
-        except (ValueError, ModelUnavailable):
-            pass  # service đã ghi lại; trang tài liệu hiển thị
+            from starlette.concurrency import run_in_threadpool
+            await run_in_threadpool(service.run, doc_id)
+        except Exception:
+            pass  # service persists a bounded error message displayed on the document page
         return RedirectResponse(f"/documents/{doc_id}", 303)
 
     @app.post("/documents/{doc_id}/manual")
     async def manual(doc_id: str, request: Request):
         form = await checked_form(request)
-        version = required_int(form, "version")
-        await run_in_threadpool(lambda: service.save(doc_id, {}, version, provenance="manual"))
+        service.save(doc_id, {}, int(str(form["version"])), provenance="manual")
         return RedirectResponse(f"/documents/{doc_id}", 303)
 
     @app.post("/documents/{doc_id}/save")
     async def save(doc_id: str, request: Request):
         form = await checked_form(request)
-        version, raw = required_int(form, "version"), required(form, "content")
-        await run_in_threadpool(lambda: service.save(doc_id, decode(raw), version))
+        service.save(doc_id, json.loads(str(form["content"])), int(str(form["version"])))
         return RedirectResponse(f"/documents/{doc_id}", 303)
-
-    def decode(raw):
-        try:
-            return json.loads(raw)
-        except json.JSONDecodeError as exc:
-            # json.JSONDecodeError la con cua ValueError nen van ra 400, nhung
-            # thong bao goc bang tieng Anh; boc lai de trang loi dong ngon ngu.
-            raise ValueError(f"JSON không hợp lệ ở dòng {exc.lineno}, cột {exc.colno}: {exc.msg}") from None
 
     @app.post("/documents/{doc_id}/edit")
     async def edit(doc_id: str, request: Request):
         form = await checked_form(request)
-        await run_in_threadpool(apply_edit, doc_id, form)
-        return RedirectResponse(f"/documents/{doc_id}", 303)
-
-    def apply_edit(doc_id, form):
-        # Ca cum get + dung noi dung + save nam trong mot lan sang threadpool:
-        # tach ra thi phan doc DB lai roi nguoc ve event loop.
         doc = service.get(doc_id)
         sources = {b["id"]: b["text"] for b in doc["blocks"]}
         def value(key):
@@ -221,14 +158,13 @@ def create_app(service=None):
             task = value(f"request_{i}")
             if task:
                 content["tasks"].append({"request": task, "deadline": value(f"deadline_{i}")})
-        return service.save(doc_id, content, required_int(form, "version"))
+        service.save(doc_id, content, int(str(form["version"])))
+        return RedirectResponse(f"/documents/{doc_id}", 303)
 
     @app.post("/documents/{doc_id}/review")
     async def review(doc_id: str, request: Request):
         form = await checked_form(request)
-        version, digest, action = required_int(form, "version"), required(form, "hash"), required(form, "action")
-        reason = str(form.get("reason", ""))
-        await run_in_threadpool(lambda: service.review(doc_id, version, digest, action, reason))
+        service.review(doc_id, int(str(form["version"])), str(form["hash"]), str(form["action"]), str(form.get("reason", "")))
         return RedirectResponse(f"/documents/{doc_id}", 303)
 
     @app.get("/documents/{doc_id}/draft/{version}")

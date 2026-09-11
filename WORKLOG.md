@@ -239,3 +239,9 @@ Kết luận trung thực: prompt đang thiếu mô tả schema là một lỗi 
 - `model_catalog` nhận thêm `qwen`, `kimi`; cả hai đi qua đường cloud của `policy_gate` (có test). Chưa có adapter, endpoint chưa vào allowlist.
 - Nghiên cứu bốn hãng từ nguồn chính thức: `docs/NGHIEN_CUU_PROVIDER_2026-09.md`. Điểm đáng nhớ: Kimi dùng nội dung để tối ưu model, không nêu cách từ chối; DeepSeek lưu tại Trung Quốc; máy chủ MCP của ứng dụng không được gắn vào trợ lý cloud vì đường đó không qua `policy_gate`.
 - Một test có sẵn dùng `"kimi"` làm ví dụ provider **không** hỗ trợ; đổi ví dụ sang `"unknown-provider"`, giữ nguyên assertion.
+
+## 2026-09-11 — claude/aimarx-vao-main — đưa #27 vào main
+
+- #27 xếp chồng trên #26 và được merge 51 giây sau #26, vào nhánh `claude/prompt-extraction` thay vì `main`, nên nội dung AIMarx chưa lên `main`. PR này mang đúng phần đó vào `main`; diff trùng khít #27.
+- Anh Khang đã đổi tên repo thành `hongkhang21998-creator/AIMarx`; sửa câu README ghi "tên repo giữ nguyên". Remote local đã trỏ URL mới.
+- **Bài học:** không xếp chồng PR nữa. GitHub chỉ tự đổi base khi nhánh base bị xoá; chờ PR trước merge rồi mới dựng PR sau trên `main`.

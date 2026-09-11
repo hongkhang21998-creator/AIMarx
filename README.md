@@ -1,6 +1,6 @@
 # AIMarx
 
-**AIMarx** là tên chính thức của trợ lý văn bản local này, đặt theo Karl Marx; định hướng lấy cảm hứng từ Marx và Rosa Luxemburg — xem [định hướng AIMarx](docs/AIMARX_DINH_HUONG.md). Tên gói Python (`tro_ly_van_ban`), lệnh CLI và tên repo giữ nguyên để không làm hỏng cài đặt đang có.
+**AIMarx** là tên chính thức của trợ lý văn bản local này, đặt theo Karl Marx; định hướng lấy cảm hứng từ Marx và Rosa Luxemburg — xem [định hướng AIMarx](docs/AIMARX_DINH_HUONG.md). Repo GitHub đã đổi tên thành [`hongkhang21998-creator/AIMarx`](https://github.com/hongkhang21998-creator/AIMarx); tên cũ `tro-ly-van-ban` được GitHub tự chuyển hướng. Tên gói Python (`tro_ly_van_ban`) và lệnh CLI giữ nguyên để không làm hỏng cài đặt đang có.
 
 
 Bản thử nghiệm một người dùng: nhập PDF có chữ, DOCX hoặc TXT → đọc nguồn qua FastMCP → LangGraph trích xuất và kiểm tra → phiếu xử lý, việc đề xuất và dự thảo DOCX → người dùng sửa và duyệt đúng phiên bản. Dữ liệu ở máy local, model dùng Ollama tại `127.0.0.1:11434`; không có fallback cloud.

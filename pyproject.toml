@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "tro-ly-van-ban"
 version = "0.1.0"
-description = "Trợ lý văn bản local có nguồn và duyệt phiên bản"
+description = "AIMarx — trợ lý văn bản local có nguồn và duyệt phiên bản"
 requires-python = ">=3.12"
 dependencies = ["fastapi", "uvicorn", "python-multipart", "pydantic>=2", "httpx", "pypdf", "python-docx", "langgraph", "fastmcp"]
 

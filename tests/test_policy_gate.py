@@ -110,7 +110,7 @@ def test_unavailable_model_denied(models):
     assert check(models=models) is Decision.POLICY_DENIED
 
 
-@pytest.mark.parametrize("models", [None, {}, (), [None], [model(enabled=1)], [model(provider="kimi")], [model(api_key="secret")], [model(), model(id=" test-model ", enabled=False)]])
+@pytest.mark.parametrize("models", [None, {}, (), [None], [model(enabled=1)], [model(provider="unknown-provider")], [model(api_key="secret")], [model(), model(id=" test-model ", enabled=False)]])
 def test_invalid_catalogue(models):
     assert check(models=models) is Decision.INVALID_REQUEST
 

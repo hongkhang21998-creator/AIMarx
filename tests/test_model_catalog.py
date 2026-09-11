@@ -240,3 +240,23 @@ def test_api_key_sentinel_rejected_without_leak():
     assert msg == EXPECTED_ERROR
     assert sentinel not in msg
     assert "api_key" not in msg
+
+@pytest.mark.parametrize("provider", ["qwen", "kimi"])
+def test_qwen_and_kimi_are_cloud_not_local(provider):
+    # Ten hang khong phai noi chay: Qwen/Kimi qua API la cloud; chay local thi khai "ollama".
+    entry = {"id": f"{provider}-demo", "provider": provider, "model": "synthetic", "enabled": True}
+    assert list_public_models([entry])[0]["data_destination"] == "cloud"
+
+
+@pytest.mark.parametrize("provider", ["qwen", "kimi"])
+def test_qwen_and_kimi_inherit_cloud_policy(provider):
+    from tro_ly_van_ban.policy_gate import PolicyDecision, evaluate_policy
+    models = [{"id": "m", "provider": provider, "model": "synthetic", "enabled": True}]
+    request = {"operation": "extract", "model_id": "m"}
+    # Mac dinh chan; bat cloud ma nguon noi bo van chan; toi da chi la xin dong y, khong bao gio tu chay.
+    assert evaluate_policy(request, models=models, source_classifications=("public",),
+                           prompt_classification="public") is PolicyDecision.POLICY_DENIED
+    assert evaluate_policy(request, models=models, cloud_enabled=True, source_classifications=("internal",),
+                           prompt_classification="public") is PolicyDecision.POLICY_DENIED
+    assert evaluate_policy(request, models=models, cloud_enabled=True, source_classifications=("public",),
+                           prompt_classification="public") is PolicyDecision.CONSENT_REQUIRED

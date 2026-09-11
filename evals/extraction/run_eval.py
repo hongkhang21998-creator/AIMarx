@@ -173,7 +173,7 @@ def vi_messages(blocks, system):
     return [{"role": "system", "content": system}, {"role": "user", "content": json.dumps(slim, ensure_ascii=False)}]
 
 
-def vi_chat(blocks, model_name, with_quote):
+def vi_chat(blocks, model_name, with_quote, num_ctx=8192):
     import httpx
     from tro_ly_van_ban.domain import Extraction
     drop = () if with_quote else ("quote",)
@@ -183,7 +183,7 @@ def vi_chat(blocks, model_name, with_quote):
         with httpx.Client(timeout=120, trust_env=False) as client:
             result = client.post("http://127.0.0.1:11434/api/chat", json={
                 "model": model_name, "stream": False, "think": False, "format": schema,
-                "options": {"temperature": 0, "num_ctx": 8192, "num_predict": 2048}, "messages": messages})
+                "options": {"temperature": 0, "num_ctx": num_ctx, "num_predict": 2048}, "messages": messages})
             result.raise_for_status()
     except httpx.HTTPError as exc:
         raise model_mod.ModelUnavailable(str(exc)) from exc
@@ -201,8 +201,9 @@ def vi_chat(blocks, model_name, with_quote):
         raise ValueError("Model trả dữ liệu sai schema") from exc
 
 
-DIRECT = {"V4": lambda blocks, m: vi_chat(blocks, m, with_quote=True),
-          "V5": lambda blocks, m: vi_chat(blocks, m, with_quote=False)}
+DIRECT = {"production": lambda blocks, m, n: model_mod.extract(blocks, "ollama", m, num_ctx=n),
+          "V4": lambda blocks, m, n: vi_chat(blocks, m, with_quote=True, num_ctx=n),
+          "V5": lambda blocks, m, n: vi_chat(blocks, m, with_quote=False, num_ctx=n)}
 
 
 VARIANTS = {
@@ -213,7 +214,7 @@ VARIANTS = {
                           {"role": "user", "content": as_lines(EXAMPLE_BLOCKS)},
                           {"role": "assistant", "content": json.dumps(EXAMPLE_ANSWER, ensure_ascii=False)},
                           {"role": "user", "content": as_lines(blocks)}],
-    "production": lambda blocks: model_mod.build_messages(blocks),
+    "production": None,
     "V4": None,
     "V5": None,
 }
@@ -272,14 +273,17 @@ def score(case, extraction, evidence_error):
     }
 
 
-def run_case(case, variant, model_name):
+def run_case(case, variant, model_name, num_ctx=8192):
     blocks, _ = parse("\n".join(case["lines"]).encode(), ".txt")
     started = time.monotonic()
     try:
         if variant in DIRECT:
-            extraction = DIRECT[variant](blocks, model_name)
+            extraction = DIRECT[variant](blocks, model_name, num_ctx)
         else:
-            extraction = model_mod.chat(VARIANTS[variant](blocks), model_name)
+            # V0–V3 dùng khoá tiếng Anh và có quote, như lúc đo vòng 1.
+            from tro_ly_van_ban.domain import Extraction
+            schema = model_mod.grammar_schema(Extraction.model_json_schema())
+            extraction = Extraction.model_validate(model_mod.chat(VARIANTS[variant](blocks), model_name, schema, num_ctx))
     except model_mod.ModelUnavailable:
         raise
     except ValueError as exc:
@@ -326,6 +330,9 @@ def main():
     parser.add_argument("--variant", nargs="+", default=["production"], choices=sorted(VARIANTS))
     parser.add_argument("--model", default="qwen3:0.6b")
     parser.add_argument("--only", nargs="*", help="chỉ chạy các case id này")
+    # 8192 là cấu hình ứng dụng. Văn bản chấm chỉ vài trăm token nên 4096 không đổi
+    # những gì model nhìn thấy, chỉ bớt bộ nhớ đệm — máy 7 GB từng bị OOM ở 8192.
+    parser.add_argument("--num-ctx", type=int, default=8192)
     args = parser.parse_args()
     cases = json.loads((HERE / "cases.json").read_text(encoding="utf-8"))["cases"]
     if args.only:
@@ -335,8 +342,15 @@ def main():
     stamp = datetime.now().strftime("%Y%m%d-%H%M")
     for variant in args.variant:
         rows = []
+        aborted = None
         for case in cases:
-            row = run_case(case, variant, args.model)
+            try:
+                row = run_case(case, variant, args.model, args.num_ctx)
+            except model_mod.ModelUnavailable as exc:
+                # Loi ha tang (server chet, OOM) khong duoc tron vao so do chat luong: dung, ghi phan da co.
+                aborted = f"{case['id']}: {exc}"[:300]
+                print(f"[{variant}] DỪNG vì model không phản hồi ở {aborted}", flush=True)
+                break
             rows.append(row)
             print(f"[{variant}] {case['id']} {row['seconds']:>5}s "
                   + ("SCHEMA-LỖI" if not row.get("schema_ok") else
@@ -344,9 +358,11 @@ def main():
                      f"date={row['document_date']:d} tasks={row['tasks_pred']}/{row['tasks_gold']} "
                      f"hit={row['tasks_recalled']} dl={row['deadline_ok']} inj={row['injection_as_task']:d}"),
                   flush=True)
-        summary = {split: summarize(rows, split) for split in ("dev", "test")}
-        report = {"variant": variant, "model": args.model, "at": stamp, "summary": summary, "rows": rows}
-        (out_dir / f"{stamp}-{variant}.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+        summary = {split: summarize(rows, split) for split in ("dev", "test", "test2")}
+        report = {"variant": variant, "model": args.model, "num_ctx": args.num_ctx, "at": stamp,
+                  "aborted": aborted, "summary": summary, "rows": rows}
+        suffix = "-DUNG" if aborted else ""
+        (out_dir / f"{stamp}-{variant}{suffix}.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"[{variant}] TÓM TẮT {json.dumps(summary, ensure_ascii=False)}", flush=True)
 
 

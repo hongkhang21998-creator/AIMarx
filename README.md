@@ -58,6 +58,8 @@ Ollama cho Windows phải cài riêng: gói `.tar.zst` trong `.runtime/downloads
 
 - SHA-256 chống trùng nội dung dù đổi tên; bản gốc được tạo độc quyền, đặt chỉ đọc. File thay đổi là tài liệu mới. Đây không phải kho WORM chống quản trị viên sửa.
 - SQLite giữ tài liệu, nguồn, tất cả phiên bản, chế độ/model và lịch sử duyệt. Sổ việc lấy từ phiên bản mới nhất; chỉ `approved` là đã xác nhận. Không có việc/lịch tự gửi ra ngoài.
+- **Số ký hiệu, cơ quan ban hành, ngày ban hành lấy bằng quy tắc thể thức** (`header.py`), không lấy từ model: đo trên bộ chấm, model 0,6B bỏ trống hoặc bịa phần này. Quy tắc cắt nguyên văn từ nguồn; không khớp thì để trống cho người dùng điền, không đoán.
+- **Model chỉ đề xuất việc.** Khung sinh dùng khoá tiếng Việt (khoá `number` tiếng Anh làm model điền `"1"`); model chỉ trả giá trị và mã đoạn, mã tự lấy `quote` từ đúng đoạn nguồn và chỉ nắn lệch hoa-thường/khoảng trắng. Không dùng ví dụ mẫu: model nhỏ chép nó sang văn bản khác. Đổi prompt thì phải chạy lại `evals/extraction/run_eval.py` — số đo và giới hạn ở `evals/extraction/BAO_CAO_2026-09-11.md`.
 - Trường quan trọng dùng `value`, `block_id`, `quote`; mã kiểm tra quote tồn tại trong đúng nguồn và value nằm trong quote. Kiểm tra này chứng minh xuất xứ chữ, **chưa chứng minh model phân loại đúng ý nghĩa**; người dùng phải đối chiếu.
 - Dự thảo luôn mang nhãn chờ kiểm tra; mẫu phiếu kỹ thuật chưa được xác nhận là mẫu hành chính. Việc duyệt không biến DOCX thành văn bản phát hành.
 - Xác nhận đòi **bytes DOCX trên đĩa khớp `draft_hash`** đã lưu, không chỉ khớp hash nội dung JSON: người dùng xác nhận cái họ đọc trong DOCX. Dự thảo bị sửa hoặc mất tệp thì không xác nhận được, nhưng **vẫn từ chối được** — nếu chặn cả từ chối thì bản bị sửa sẽ kẹt ở `awaiting_review` vĩnh viễn.

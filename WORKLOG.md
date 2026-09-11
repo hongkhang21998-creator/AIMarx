@@ -230,3 +230,12 @@ Kết luận trung thực: prompt đang thiếu mô tả schema là một lỗi 
 - `domain.py`, `validate_evidence` **không đổi**. Đã thử đột biến nắn giá trị bịa sang chữ thật khác: test đỏ.
 - **OOM:** lượt chạy đầu bị kernel giết `llama-server` (~2,2 GB ở `num_ctx` 8192) khi app ChatGPT/Claude desktop cùng mở. Anh Khang tắt app rồi chạy lại được. Cấu hình ứng dụng có cùng rủi ro — chưa sửa, cần đo token trước.
 - Còn chờ anh chốt: chặn theo trường thay vì cả phiếu; hạ `num_ctx`; model lớn hơn; bộ chấm bằng văn bản thật đã khử nhạy cảm. Đã tắt Ollama sau khi đo.
+
+## 2026-09-11 — claude/aimarx-provider-research — AIMarx và nghiên cứu provider
+
+- Nhánh `claude/aimarx-provider-research`, **xếp chồng trên PR #26** (`claude/prompt-extraction`); #26 merge trước.
+- Anh Khang chốt: tên chính thức **AIMarx** (theo Karl Marx); làm dưới dạng **tuyên ngôn + nguyên tắc sản phẩm** lấy cảm hứng từ Marx và Rosa Luxemburg, **không** huấn luyện model, **không** đổi hành vi trích xuất. `docs/AIMARX_DINH_HUONG.md`.
+- Đổi tên hiển thị (README, giao diện, mô tả gói). Tên gói Python, lệnh CLI, tên repo giữ nguyên để không hỏng cài đặt trên hai máy.
+- `model_catalog` nhận thêm `qwen`, `kimi`; cả hai đi qua đường cloud của `policy_gate` (có test). Chưa có adapter, endpoint chưa vào allowlist.
+- Nghiên cứu bốn hãng từ nguồn chính thức: `docs/NGHIEN_CUU_PROVIDER_2026-09.md`. Điểm đáng nhớ: Kimi dùng nội dung để tối ưu model, không nêu cách từ chối; DeepSeek lưu tại Trung Quốc; máy chủ MCP của ứng dụng không được gắn vào trợ lý cloud vì đường đó không qua `policy_gate`.
+- Một test có sẵn dùng `"kimi"` làm ví dụ provider **không** hỗ trợ; đổi ví dụ sang `"unknown-provider"`, giữ nguyên assertion.

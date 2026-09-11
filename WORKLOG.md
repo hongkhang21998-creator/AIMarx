@@ -1,5 +1,14 @@
 # Nhật ký phối hợp
 
+## 2026-09-11 — claude/data1000-guard — chặn khởi động khi ổ Data1000 vắng mặt
+
+- Claude (Opus), base `main` `e8c1849` (sau PR #37). Anh Khang yêu cầu sửa hai lỗi phát hiện ở SNAP-01 **trước** khi làm SNAP-02.
+- File: `src/tro_ly_van_ban/storage_guard.py` (mới), `service.py` (một lời gọi trước `mkdir` + tham số `required_mount`), `web.py`, `mcp_server.py` (đọc `TLVB_REQUIRED_MOUNT`), `scripts/run-local.sh`/`.ps1` (đọc `TLVB_*` từ `.env`), `tests/test_storage_guard.py`, `.env.example`, README, `docs/SNAPSHOT_CONTRACT.md` (ba dòng trạng thái).
+- Lỗi 1: rút ổ rồi khởi động lại thì `mkdir(parents=True)` có thể dựng DB rỗng trên tmpfs; trước đây chỉ tình cờ không xảy ra nhờ quyền udisks. Lỗi 2: `data` tương đối theo thư mục đang đứng, chạy nhầm bản laptop là dùng kho cũ.
+- Không đặt `TLVB_REQUIRED_MOUNT` thì hành vi y như cũ (CI, Windows).
+- Test: 15 test mới; 303 passed, 1 skipped cả bộ (`pytest tests docs`), chạy lại với `--basetemp` trên Data1000 cũng 303 passed. Hai đột biến (bỏ lời gọi kiểm; `mkdir` trước khi kiểm) làm 10 và 9 test đỏ. Thử trên ổ thật: kho Data1000 được nhận; kho laptop, `/tmp`, đường tương đối bị từ chối và không tạo thư mục.
+- Chưa làm: tạo `.env` trên hai bản sao và khởi động lại UI đang chạy — chờ anh đồng ý sau khi merge. Chưa chạy `run-local.ps1` trên Windows (không có PowerShell ở máy này); CI Windows chỉ chạy pytest.
+
 ## 2026-09-11 — codex/data1000-handoff — bản sao vận hành và kho SLM
 
 - Theo xác nhận của người dùng, dừng AIMarx/Ollama và sao chép toàn bộ workspace từ laptop ASUS sang `/run/media/asus/Data1000/AIMarx/workspace`; giữ nguyên bản gốc, chưa xóa hay chuyển đường làm việc chính của Codex.

@@ -13,6 +13,7 @@ from .domain import Extraction, validate_evidence
 from .fsguard import freeze, harden_dir, thaw
 from .model import extract, ModelUnavailable
 from .parser import parse, MAX_BYTES
+from .storage_guard import check_data_root
 
 
 class NotFound(ValueError):
@@ -63,9 +64,11 @@ graph = builder.compile()
 
 
 class Service:
-    def __init__(self, root: str | Path, mode="ollama", model="qwen3:0.6b"):
+    def __init__(self, root: str | Path, mode="ollama", model="qwen3:0.6b", required_mount=None):
         if mode not in {"ollama", "demo"}:
             raise ValueError("TLVB_MODE must be ollama or demo")
+        # Phai kiem truoc mkdir: o vang mat thi mkdir(parents=True) se dung kho rong tren tmpfs.
+        check_data_root(root, required_mount)
         self.root = Path(root).absolute()
         if self.root.is_symlink():
             raise ValueError("Data directory cannot be a symlink")

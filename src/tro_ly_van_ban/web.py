@@ -12,7 +12,7 @@ from .parser import MAX_BYTES
 
 
 def create_app(service=None):
-    service = service or Service(os.getenv("TLVB_DATA", "data"), os.getenv("TLVB_MODE", "ollama"), os.getenv("TLVB_MODEL", "qwen3:0.6b"))
+    service = service or Service(os.getenv("TLVB_DATA", "data"), os.getenv("TLVB_MODE", "ollama"), os.getenv("TLVB_MODEL", "qwen3:0.6b"), os.getenv("TLVB_REQUIRED_MOUNT"))
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
     app.state.service = service
     token = secrets.token_urlsafe(32)

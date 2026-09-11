@@ -48,7 +48,7 @@ Trước khi mở kết nối cho gateway, backend kiểm cả ba điều kiện
 2. `os.path.ismount(TLVB_REQUIRED_MOUNT)` là `True`;
 3. `st_dev` của thư mục data bằng `st_dev` của gốc gắn ổ. Điều này bắt ca thư mục cùng tên tồn tại nhưng nằm trên ổ khác.
 
-**Vì sao cần:** `/run` là tmpfs. Nếu ổ bị rút mà ứng dụng khởi động lại, `Service.__init__` gọi `mkdir(parents=True)` trên đường dẫn cũ. Hôm nay lệnh đó **tình cờ** thất bại, vì `/run/media/asus` thuộc `root:root` với quyền `0750` (asus chỉ có `r-x` qua ACL do udisks đặt). Đó là quyền của udisks, không phải bảo đảm của ứng dụng: nếu quyền đổi, ứng dụng sẽ lặng lẽ dựng một DB rỗng trong RAM. Với snapshot thì chỉ là mất bản chờ, nhưng với ledger thì là **mất sổ chi tiêu và reset hạn mức** sau khi khởi động lại. Chặn ở tầng `Service` nằm ngoài phạm vi SNAP-01 (không được sửa `service.py`), nên đề xuất thành một gói riêng (mục 14).
+**Vì sao cần:** `/run` là tmpfs. Nếu ổ bị rút mà ứng dụng khởi động lại, `Service.__init__` gọi `mkdir(parents=True)` trên đường dẫn cũ. Hôm nay lệnh đó **tình cờ** thất bại, vì `/run/media/asus` thuộc `root:root` với quyền `0750` (asus chỉ có `r-x` qua ACL do udisks đặt). Đó là quyền của udisks, không phải bảo đảm của ứng dụng: nếu quyền đổi, ứng dụng sẽ lặng lẽ dựng một DB rỗng trong RAM. Với snapshot thì chỉ là mất bản chờ, nhưng với ledger thì là **mất sổ chi tiêu và reset hạn mức** sau khi khởi động lại. Chặn ở tầng `Service` nằm ngoài phạm vi SNAP-01 (không được sửa `service.py`), nên đã làm thành gói riêng: `storage_guard.check_data_root`, gọi trong `Service.__init__` **trước** `mkdir`, bật bằng `TLVB_REQUIRED_MOUNT` (nhánh `claude/data1000-guard`). Gateway sau này mở kết nối qua `Service` là được hưởng hàng rào này; `open_gateway_db` ở mục 9 chỉ còn cần nếu gateway mở DB không qua `Service`.
 
 ### 3.3. Hai kho đang cùng tồn tại
 
@@ -412,7 +412,7 @@ Nhận xét:
 | Block không bị ghi lại sau khi nhập | Chỉ **đọc mã**: không có `UPDATE` nào đụng `blocks`. Chưa có test khoá lại |
 | Khoá SQLite giữa hai tiến trình chạy đúng trên ổ Data1000 | **Thí nghiệm** ngày 11/09 (mục 3.4), không phải test trong repo, không nói gì về độ bền khi rút ổ |
 | Snapshot bất biến, hash, phát hiện đổi nguồn/nhãn/phiên bản/revision, TTL, claim một lần | **Chưa có** — chỉ có sau khi SNAP-02 có test |
-| Chặn khi Data1000 vắng mặt | **Chưa có** — hôm nay chỉ tình cờ an toàn nhờ quyền thư mục của udisks (mục 3.2) |
+| Chặn khi Data1000 vắng mặt | **Có** ở tầng `Service` khi đặt `TLVB_REQUIRED_MOUNT` (gói `claude/data1000-guard`, 15 test, đã thử trên ổ thật). Không đặt biến thì vẫn như cũ |
 | Chỉ gửi khi có quyền, gửi đúng một lần, không vượt ngân sách | **Chưa có** — cần GRANT-01 **và** ledger |
 | Không có byte nào rời máy khi bị từ chối | **Chưa chứng minh được bằng unit test**; cần test với transport giả đếm số lần gọi, sau khi có adapter (PSC-01 mục 9) |
 
@@ -456,7 +456,7 @@ Còn cần Astra chốt:
 3. `PAYLOAD_INTEGRITY` gộp vào `STALE_REQUEST` như mục 8, hay khoá cloud tới khi người dùng kiểm.
 4. TTL `prepared` 15 phút, `TTL_MAX` 60 phút, chờ khoá 5 giây.
 5. `revisions.policy`: thêm hằng số vào `policy_gate.py` (file của Astra) hay để snapshot tự băm mã nguồn policy.
-6. Hàm gác Data1000 `open_gateway_db` nằm trong SNAP-02 hay gói riêng; và có chặn luôn ở `Service.__init__` không (sửa `service.py`, ngoài phạm vi SNAP).
+6. ~~Chặn ở `Service.__init__`~~ → đã làm ở gói `claude/data1000-guard`. Còn chốt: gateway có bắt buộc mở DB qua `Service` (khỏi cần `open_gateway_db`) hay không.
 
 ## 15. Nối với grant và ledger — chưa triển khai
 

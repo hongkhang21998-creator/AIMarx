@@ -1,5 +1,15 @@
 # Nhật ký phối hợp
 
+## 2026-09-11 — codex/data1000-handoff — bản sao vận hành và kho SLM
+
+- Theo xác nhận của người dùng, dừng AIMarx/Ollama và sao chép toàn bộ workspace từ laptop ASUS sang `/run/media/asus/Data1000/AIMarx/workspace`; giữ nguyên bản gốc, chưa xóa hay chuyển đường làm việc chính của Codex.
+- Tạo `data-lake/raw`, `data-lake/quarantine`, `data-lake/approved` và `models`. Chỉ `approved` dành cho mẫu được người dùng duyệt riêng để học; không tự thu thập file từ workspace/data và không coi vị trí lưu là quyền huấn luyện.
+- Đối chiếu trước lượt Luna cuối: 11.654 file, dung lượng hai bên 3,7 GiB; SQLite `integrity_check=ok`, pip check sạch. Luna đang ghi ba file nên đã chờ hoàn tất và đồng bộ delta lần cuối.
+- Sửa editable install trong venv bản sao; xác nhận import `tro_ly_van_ban` từ Data1000. Regression chạy từ bản sao: 288 passed, 1 skipped; kiểm classification + planning scorer sau relink: 23 passed.
+- Khởi động lại từ Data1000: Ollama 0.33.3 đọc model trong `.runtime/models`, cloud disabled; UI `127.0.0.1:8765` HTTP 200, model `qwen3:0.6b` hiện diện. Ổ là NTFS; dependency Python vẫn dùng các package trong venv đã sao chép và cần kiểm lại sau thay đổi mount/OS.
+- Luna hoàn tất PLAN-EVAL-02: scorer offline và 11 test; file được Astra đưa vào PR này để review. Chưa benchmark model hoặc cấp quyền API.
+- Phạm vi PR: README, WORKLOG và ba file PLAN-EVAL-02. Người dùng merge; bản gốc còn nguyên để rollback bằng cách dừng tiến trình Data1000 và chạy scripts từ đường cũ.
+
 ## 2026-09-11 — codex/progress-intelligence-first — cập nhật định hướng và giao việc
 
 - Astra; base `68765bd` sau PR #29; chỉ sở hữu `TIEN_DO.md`, `WORKLOG.md`.

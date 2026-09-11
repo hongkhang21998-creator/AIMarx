@@ -1,5 +1,57 @@
 # Tiến độ từng ngày
 
+## Định hướng hiện hành — 11/09/2026: ưu tiên lõi xử lý và độ thông minh
+
+**Nhịp mới theo chỉ đạo tiếp theo:** giai đoạn tăng tốc, chuẩn bị nhiều gói và cho phép làm song song khi không chung file/phụ thuộc. Quy tắc cũ một gói cho cả dự án mỗi ngày được thay thế; vẫn kiểm thử, ghi bàn giao, PR riêng và người dùng merge. Các gói lõi phụ thuộc nhau phải đi tuần tự từ main đã merge, không xếp chồng PR.
+
+Theo chỉ đạo anh Nguyen Hong Khang: giữ UX/UI hiện tại, không đầu tư làm lại vỏ giao diện. Ưu tiên khả năng hiểu tài liệu, đề xuất kế hoạch, tự tổ chức thực hiện và chất lượng kết quả. Chỉ bổ sung giao diện tối thiểu để xác nhận gửi API, hỏi thông tin thiếu và xem kết quả. Mục này thay các ưu tiên cũ bên dưới; giữ các ghi chép cũ làm lịch sử.
+
+### Chính sách dữ liệu và trạng thái thực tế
+
+- Đã chốt: tài liệu công khai/giả lập được xét dùng API; nội bộ/hạn chế/chưa phân loại giữ local. Nhãn phải do người dùng xác định; model không được tự nâng quyền. Nguồn trộn và nội dung dẫn xuất không được làm mất hạn chế của nguồn.
+- PR #29 đã merge vào main tại `68765bd`: nhãn lúc nhập, lưu SQLite, tài liệu cũ mặc định unknown, nhập trùng giữ nhãn cũ. Đây là nền phân loại, **chưa phải đường gọi cloud đã hoạt động**.
+- PG-01 đã merge qua PR #21; hiện vẫn là hàm kiểm điều kiện chuẩn bị. Snapshot/grant/ngân sách/adapter và kiểm quyền trước mỗi lần gửi chưa được nối vào runtime.
+- Model API `gpt-5.4-mini`, trần 0,02 USD/yêu cầu, 0,20 USD/ngày, 2 USD/tháng mới là **đề xuất chờ duyệt**, chưa có quyền chi tiền hoặc gọi API thật. Có thể triển khai và kiểm thử bằng mock trước.
+- Bản local đã chạy trong phiên này: UI HTTP 200, Ollama qwen3:0.6b trả lời câu thử; bộ test trước PR #29 đạt 265 passed, 1 skipped. PR #29 có regression 276 passed, 1 skipped và bộ phân loại bổ sung 12 passed. Đây là bằng chứng các lượt trước, không phải lượt chạy mới trong PR tài liệu này; chưa chứng minh chất lượng nghiệp vụ.
+
+### Mốc nghiệm thu đầu tiên
+
+Backlog tăng tốc đã tạo trên GitHub:
+
+| Phụ trách | Issue | Phụ thuộc / trạng thái giao |
+|---|---|---|
+| Claude/Opus | [#30 SNAP-01](https://github.com/hongkhang21998-creator/AIMarx/issues/30): thiết kế snapshot | Sẵn sàng nhận, chưa khởi chạy Claude |
+| Claude/Opus | [#31 SNAP-02](https://github.com/hongkhang21998-creator/AIMarx/issues/31): triển khai snapshot | Chờ #30 review và merge |
+| Claude/Opus | [#32 GRANT-01](https://github.com/hongkhang21998-creator/AIMarx/issues/32): grant một lần | Chờ #31 merge và Astra chốt schema |
+| Luna | [#33 PLAN-EVAL-01](https://github.com/hongkhang21998-creator/AIMarx/issues/33): 6 ca giả lập | Đã tạo bộ ca; Astra kiểm JSON/ID/quote/nhãn nguồn trộn, chờ merge PR hiện tại; chưa chạy model |
+| Luna | [#34 PLAN-EVAL-02](https://github.com/hongkhang21998-creator/AIMarx/issues/34): bộ chấm offline | Chờ #33 merge và chốt schema candidate |
+
+Issue ghi người/model nhận việc, không phải GitHub account assignee hoặc bằng chứng model đã chạy. Chỉ #33 đã có tiến trình Luna trong phiên này.
+
+Nhập công văn yêu cầu báo cáo → AIMarx xác định yêu cầu/sản phẩm/thời hạn kèm nguồn → lập kế hoạch → giao các bước cho agent → tạo dự thảo có nguồn → chỉ rõ dữ liệu còn thiếu để anh bổ sung và duyệt. Người dùng không cần tự chọn agent hoặc viết prompt từng bước. Thiếu dữ kiện thì hỏi hoặc để chỗ trống, không bịa; gửi ra ngoài và phát hành vẫn cần người dùng duyệt.
+
+Thứ tự các gói tiếp theo (chưa triển khai, không giao chạy tất cả cùng buổi):
+
+1. Nối model qua gateway PSC-01: snapshot bất biến, kiểm thay đổi nguồn/quyền gửi, grant và ngân sách, rồi adapter; test mock trước khi thử API thật.
+2. Hiểu tài liệu và lập kế hoạch có cấu trúc: yêu cầu, sản phẩm, hạn, căn cứ, dữ kiện thiếu.
+3. Thực hiện kế hoạch có lưu trạng thái, giao worker, tổng hợp và kiểm tra kết quả với nguồn.
+4. Đánh giá xuyên suốt bằng bộ giả lập rồi văn bản đã khử nhạy cảm: hiểu đúng, làm đủ, không bịa, hỏi đúng chỗ và số thao tác người dùng; không lấy số agent làm thước đo.
+
+### Phân công đội phát triển đề xuất
+
+Đây là vai trò phát triển AIMarx, không phải danh sách model runtime đã cấu hình.
+
+Giao việc theo yêu cầu tiếp theo của người dùng: Luna nhận PLAN-EVAL-01 (6 ca giả lập lập kế hoạch, chỉ `docs/qa/planning-v1/`); Claude/Opus nhận SNAP-01 qua phiếu `docs/handoffs/CLAUDE_SNAPSHOT_01.md` và issue GitHub (thiết kế snapshot, chỉ hai file trong phiếu). Astra kiểm tra và tích hợp; không giao cùng file. Giao issue cho Claude không đồng nghĩa tiến trình Claude đã khởi chạy.
+
+| Model | Phạm vi |
+|---|---|
+| Astra | Kiến trúc, hợp đồng giữa agent, local/API, quyền và ngân sách; nghiệm thu, tích hợp và review phần khó |
+| Sol | Tính năng/module độc lập theo hợp đồng và test; chỉ sửa UI tối thiểu khi cần cho luồng xử lý |
+| Luna | Fixture giả lập, kiểm cấu trúc dữ liệu, tài liệu/checklist và gói nhỏ có phạm vi rõ; không tự quyết quyền dữ liệu |
+| Opus | Lõi điều phối, trạng thái, lưu/khôi phục, retry/chống trùng, worker và nhất quán nguồn–dự thảo–phê duyệt |
+
+Trước mỗi gói ghi người phụ trách, base SHA, file sở hữu, tiêu chí nghiệm thu và điểm dừng vào WORKLOG. Một phạm vi code chỉ có một người sở hữu tại một thời điểm. Mọi thay đổi qua PR; anh Khang merge. Phân công Gemini cũ tiếp tục không có hiệu lực.
+
 ## Quyết định 11/09/2026 — bỏ Gemini khỏi phân công chủ động
 
 Theo yêu cầu người dùng sau thử CLI và AI Studio: không tiếp tục giao việc cho Gemini trong dự án. Astra phụ trách kiến trúc/API, tester và điều phối; Claude giữ lõi, nhận việc phụ khi có gói riêng và không chồng file. Các phân công Gemini ngày 09–10/09 bên dưới chỉ còn là lịch sử, không còn hiệu lực.

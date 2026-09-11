@@ -1,5 +1,17 @@
 # Nhật ký phối hợp
 
+## 2026-09-11 — codex/progress-intelligence-first — cập nhật định hướng và giao việc
+
+- Astra; base `68765bd` sau PR #29; chỉ sở hữu `TIEN_DO.md`, `WORKLOG.md`.
+- Ghi chỉ đạo giữ UX/UI, ưu tiên hiểu tài liệu/lập kế hoạch/thực hiện/kiểm chứng; mốc công văn → dự thảo có nguồn và dữ liệu thiếu.
+- Ghi chính sách local/API đã chốt, tách rõ nền phân loại đã merge với gateway chưa triển khai; provider/ngân sách vẫn là đề xuất chưa duyệt.
+- Ghi phân công phát triển Astra/Sol/Luna/Opus ở trạng thái đề xuất, không tự khởi chạy agent hoặc đổi runtime.
+- Kiểm tra main và PR mở #8/#11; kiểm diff tài liệu. Không chạy lại test ứng dụng, các số test trong tiến độ là bằng chứng lịch sử được ghi rõ.
+- Người dùng tiếp tục yêu cầu giao Claude và Luna: Luna được khởi chạy cho PLAN-EVAL-01, sở hữu docs/qa/planning-v1; Claude nhận phiếu SNAP-01 qua issue, sở hữu docs/SNAPSHOT_CONTRACT.md và docs/handoffs/SNAP-01-result.md trên nhánh riêng. Không có kênh trực tiếp khởi chạy Claude trong phiên này.
+- Phạm vi Astra mở rộng thêm docs/handoffs/CLAUDE_SNAPSHOT_01.md và nghiệm thu fixture Luna. Dừng tại PR để người dùng merge; không gọi API, thay key hoặc triển khai runtime.
+- Chỉ đạo mới: giai đoạn tăng tốc, cho phép nhiều gói độc lập; thay nhịp một gói/ngày. Đã tạo issues #30/#31/#32 cho Claude và #33/#34 cho Luna; các gói sau có phụ thuộc merge/schema rõ, không tự chạy cloud.
+- Luna hoàn tất cases.json/HANDOFF.md; Astra kiểm độc lập JSON, 6 ID duy nhất, quote khớp đúng nguồn và nguồn hạn chế chặn cloud_eligible. Chưa đo model hoặc công nhận chất lượng semantic; bộ fixture chờ merge trong PR này.
+
 ## 2026-09-11 — codex/document-classification — nền phân loại local/API
 
 - Astra; base `32f21a4`; sở hữu `service.py`, `web.py`, `tests/test_classification.py`, WORKLOG.

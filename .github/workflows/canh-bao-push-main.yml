@@ -1,0 +1,33 @@
+name: Cảnh báo push thẳng vào main
+# Repo riêng tư trên GitHub Free không có branch protection. Workflow này
+# không chặn được push thẳng; nó mở issue giao cho chủ repo mỗi khi main nhận
+# commit không đi qua PR, hoặc bị force-push.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: SHA đầy đủ (40 ký tự) cần kiểm
+        required: true
+      dry_run:
+        description: Chỉ in kết quả, không tạo issue
+        type: boolean
+        default: true
+permissions:
+  contents: read
+  pull-requests: read
+  issues: write
+jobs:
+  kiem-tra:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/scripts
+      - run: python3 .github/scripts/check_direct_push.py
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CHECK_SHA: ${{ inputs.sha }}
+          DRY_RUN: ${{ inputs.dry_run }}

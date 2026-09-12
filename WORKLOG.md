@@ -1,5 +1,13 @@
 # Nhật ký phối hợp
 
+## 2026-09-12 — codex/sequential-slm-swarm — chốt SLM chia nhỏ và điều phối tuần tự
+
+- Theo chỉ đạo người dùng: AIMarx phục vụ khối lượng công việc không lớn, nên SLM phải phân rã yêu cầu thành bước nhỏ, xếp thứ tự phụ thuộc và giao từng bước cho agent; không chạy nhiều agent cùng lúc.
+- Chốt giới hạn bản đầu: một agent/worker hoạt động tại một thời điểm; nhiều vai trò có thể dùng chung một model; lưu trạng thái sau mỗi bước; kiểm schema/nguồn/phiên bản/quyền/ngân sách trước khi chuyển bước; retry có giới hạn và không đệ quy vô hạn.
+- Tiêu chí tương lai: restart tiếp tục từ bước chưa xong, không nhân đôi đầu ra, nhật ký thấy đúng thứ tự và người dùng duyệt sản phẩm cuối.
+- Phạm vi lần này chỉ cập nhật `KE_HOACH_AI_AGENT.md`, `TIEN_DO.md`, `WORKLOG.md`; không đổi runtime, DB, API hoặc PR LEDGER-01 đang mở. Kiểm tra bằng đối chiếu nội dung và diff tài liệu; chưa tuyên bố cơ chế hàng đợi đã được triển khai.
+
+
 ## 2026-09-11 — claude/data1000-guard — chặn khởi động khi ổ Data1000 vắng mặt
 
 - Claude (Opus), base `main` `e8c1849` (sau PR #37). Anh Khang yêu cầu sửa hai lỗi phát hiện ở SNAP-01 **trước** khi làm SNAP-02.

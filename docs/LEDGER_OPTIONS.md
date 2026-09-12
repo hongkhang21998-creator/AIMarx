@@ -6,6 +6,48 @@ Người soạn: Claude (Opus), 11/09/2026, theo yêu cầu của anh Khang. Ch�
 
 **Không có gì trong tài liệu này cấp quyền chi tiền.** Ngân sách mặc định là 0; mức thử 0,02 / 0,20 / 2 USD của PSC-01 vẫn là đề xuất chờ anh Khang duyệt riêng.
 
+## Quyết định triển khai đã chốt — LEDGER-01, PR #44 (12/09/2026)
+
+Phần phương án bên dưới giữ làm lịch sử. Quyết định đầy đủ có trong issue #43;
+Astra tiếp nhận hoàn thiện mã dở của Claude theo yêu cầu anh Khang.
+
+- P1/P2: Reservation đúng kiểu bất biến và khớp dòng sổ (attempt/snapshot/grant,
+  provider/model/endpoint, pricing/limits revision, số tiền/deadline). Giữ tiền,
+  claim snapshot và consume grant cùng transaction. Quyết toán/event/lock/finish
+  cùng transaction; public finish bị chặn khi ledger còn pending.
+- Rate card là schema đóng, có `context_limit_tokens` nguyên dương đã xác minh,
+  tính trong pricing hash. Cận đầu vào cộng trần đầu ra phải vừa context provider
+  và context snapshot (nếu có). Số 32/256 trong test chỉ là synthetic metadata.
+  Thiếu chứng cứ billable input/output/context, giá hết hạn hoặc verified_at trong
+  tương lai đều chặn. Chưa xác minh giá/adapter production nào.
+- Giữ tối thiểu 1 micro-USD, hạn mức mặc định 0. Mỗi request một attempt. Tiền dùng
+  số nguyên và ceil; count/amount có trần trước SUM. Bản ghi lệch trạng thái–số tiền
+  bị chặn, không dùng NULL làm số dư miễn phí.
+- reserved/unresolved tính đủ khoản giữ ở mọi kỳ; over_reserve tính max(actual,
+  reserved) ở mọi kỳ; settled/reconciled tính actual vào kỳ started_at gốc; released
+  bằng 0. Không clamp actual về reserve, không cộng trùng.
+- Settlement fingerprint gồm usage nguyên gốc và outcome. Cùng số tiền nhưng khác
+  usage/outcome vẫn mâu thuẫn. Reconcile/release có fingerprint riêng; replay giống
+  nhau không thêm tiền/event, replay khác bị từ chối. Grant consumed không hồi sinh.
+- Release, mark_unresolved và recovery đóng snapshot failed trong cùng transaction.
+  Reconcile đóng snapshot còn dispatching (tương thích trạng thái dở), giữ kết quả
+  completed/failed đã tồn tại. Đối soát tiền không duyệt hoặc sửa bản nghiệp vụ.
+- Recovery biết owner chết thì chạy ngay; chưa biết thì đợi deadline 60 giây cộng
+  grace 5 phút; bỏ qua owner hiện tại. Windows chưa có process start-token probe:
+  dùng nhánh unknown/deadline, không suy đoán tiến trình chết.
+- Clock high-water bền vững: chặn lùi >5 phút và lùi qua ngày/tháng dù 1ms; nhảy
+  >400 ngày so với high-water bị chặn trước khi ghi. `now_ms` là đồng hồ backend
+  tin cậy, không là trường UI/model; ngưỡng này không phải xác minh NTP hoặc quyền
+  chống quản trị viên sửa đồng hồ/DB. Adapter sau này vẫn cần deadline monotonic.
+- Usage/UnsentProof/Principal là kiểu API nội bộ, không xác thực caller Python.
+  Không được ánh xạ trực tiếp từ UI/MCP/model; chưa có route hoặc adapter mạng.
+  Timeout sau gửi không là bằng chứng unsent. Error text transport chỉ băm, không
+  lưu trong event; unresolved reason dùng danh sách đóng. Reconcile evidence chỉ
+  dành mã hóa đơn/ghi chú không chứa nguồn, token hay khóa, do backend tin cậy cấp.
+- Không purge ledger/events và không tuyên bố mỗi dòng chỉ vài chục byte. Không
+  migration DB production: schema mới của PR chưa được bật trong runtime. DB thử
+  của bản draft cũ cần dựng lại từ dữ liệu synthetic, không tự sửa kho thật.
+
 ## Phần 1 — ba điểm đụng tới mã đã merge
 
 ### P1. `Authorization` không mang theo khoản giữ tiền

@@ -295,3 +295,30 @@ Kết luận trung thực: prompt đang thiếu mô tả schema là một lỗi 
 - #27 xếp chồng trên #26 và được merge 51 giây sau #26, vào nhánh `claude/prompt-extraction` thay vì `main`, nên nội dung AIMarx chưa lên `main`. PR này mang đúng phần đó vào `main`; diff trùng khít #27.
 - Anh Khang đã đổi tên repo thành `hongkhang21998-creator/AIMarx`; sửa câu README ghi "tên repo giữ nguyên". Remote local đã trỏ URL mới.
 - **Bài học:** không xếp chồng PR nữa. GitHub chỉ tự đổi base khi nhánh base bị xoá; chờ PR trước merge rồi mới dựng PR sau trên `main`.
+
+## 2026-09-12 — Astra tiếp nhận và hoàn thiện LEDGER-01 / PR #44
+
+- Theo yêu cầu anh Khang, tiếp quản từ Claude/Opus; đã ghi nhận quyền sở hữu ở
+  issue #43 trước khi sửa. Main base `d6a5f49`, draft head `4ad61ea`.
+- Giữ nguyên worktree Claude và Data1000 production. Sao chép cả diff chưa commit
+  (4 file, khoảng 940 dòng) sang `/home/asus/Documents/ChatGPT/AI-agent for me/artifacts/aimarx-pr44-completion`; hash patch và phạm vi
+  được ghi tại `docs/handoffs/LEDGER-01-result.md`. Tiếp tục chính `claude/ledger-store`.
+- Hoàn thiện settle/P2, recovery/release/unresolved/reconcile; sửa replay theo đầy
+  đủ outcome/usage/principal/evidence, đóng snapshot nguyên tử, kiểm Reservation
+  đúng kiểu và đủ binding, context đã xác minh, sổ sai trạng thái, lỗi SQLite.
+- Test trên ext4 và Data1000 riêng; mutation sửa source thật trong bản sao; kết quả
+  cuối trong handoff và Checks/bình luận PR, không dùng kết quả draft làm bằng chứng.
+- Trong kiểm thử đã gặp: timestamp test sai, ca ngân sách bị giá hết hạn chặn sớm;
+  sửa fixture để kiểm đúng ranh giới. Một lượt chạy lỗi do thiếu thư mục cha
+  basetemp, đã tạo thư mục test riêng rồi chạy lại; không tính lượt lỗi là regression xanh.
+- Không thay UI/MCP/model/parser; không gọi API thật, không chi phí, không đụng DB
+  production. Anh Khang merge; các gói adapter/SLM vẫn riêng. Không push lại diff dở
+  từ worktree Claude lên nhánh sau bàn giao này.
+- Kết quả cuối local: ext4 **588 passed, 1 skipped** (61,52 giây); Data1000 NTFS
+  **588 passed, 1 skipped** (252,06 giây); **15/15 source mutations bị bắt**.
+  Một warning deprecation AnyIO có sẵn. CI head mới được ghi trên PR sau push.
+- Reboot trước commit đã xóa /tmp; tái lập các lệnh sửa mã từ nhật ký phiên trên
+  patch Claude cùng SHA-256, lưu checkout bền vững trong artifacts/aimarx-pr44-completion.
+  Kiểm lại regression và mutation trước push; Data1000 chưa gắn sau reboot.
+- Sau khôi phục: regression **587 passed, 2 skipped** (Data1000 chưa gắn +
+  Windows junction); 60,86 giây. Kết quả trước reboot trên NTFS vẫn ghi riêng.

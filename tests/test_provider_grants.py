@@ -9,12 +9,14 @@ nào tới mạng.
 """
 import multiprocessing as mp
 import os
+import secrets
 import sqlite3
 from pathlib import Path
 
 import pytest
 
 from tro_ly_van_ban import provider_grants as pg
+from tro_ly_van_ban import provider_ledger as pl
 from tro_ly_van_ban import provider_snapshot as ps
 from tro_ly_van_ban.provider_grants import Principal, RequestExists
 from tro_ly_van_ban.provider_snapshot import AlreadyClaimed, SnapshotError, TrustedConfig
@@ -38,6 +40,40 @@ def make_config(**changes):
     return TrustedConfig(**base)
 
 
+# Mục rate card GIẢ LẬP tối thiểu, đủ hợp lệ để `settle` quyết toán bằng giá đã ghim.
+FAKE_RATE_ENTRY = {
+    "provider": "deepseek", "model": "synthetic-ds", "endpoint": "synthetic-endpoint/0", "currency": "USD",
+    "input_micro_usd_per_mtok": 1_000_000, "output_micro_usd_per_mtok": 2_000_000,
+    "request_fee_micro_usd": 0, "bound_method": "byte-level-verified",
+    "bound_overhead_tokens_per_message": 32, "bound_overhead_tokens_fixed": 256,
+    "billable_inputs_verified": True, "output_includes_reasoning_cap": True, "context_limit_tokens": 32768,
+    "verified_at_ms": T0 - 86_400_000, "expires_at_ms": T0 + 5 * 86_400_000,
+    "source": "https://vi-du.giaLap/gia",
+}
+
+
+def _fake_reserve(tx, snapshot, grant_id, now_ms, amount=1000):
+    """Ghi một dòng sổ THẬT trong cùng transaction, rồi trả Reservation khớp dòng đó.
+
+    Từ LEDGER-01 (P1), `authorize_dispatch` đối chiếu Reservation với dòng sổ thật, nên
+    ledger giả trong test grant cũng phải ghi thật. Số học tiền là việc của
+    `test_provider_ledger.py`; ở đây chỉ cần một khoản giữ hợp lệ.
+    """
+    pl.ensure_schema(tx.conn)
+    attempt_id = secrets.token_hex(16)
+    tx.conn.execute(
+        "INSERT INTO ledger_attempts(attempt_id, snapshot_id, grant_id, provider, model, endpoint,"
+        " pricing_revision, pricing_pinned, limits_revision, reserved_micro_usd, started_at_ms,"
+        " deadline_ms, owner_id, owner_pid, owner_start_token, state)"
+        " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'reserved')",
+        (attempt_id, snapshot.snapshot_id, grant_id, "deepseek", "synthetic-ds", "synthetic-endpoint/0",
+         snapshot.revisions["pricing"], ps.canonical_json(FAKE_RATE_ENTRY), "limits:test", amount, now_ms,
+         now_ms + pl.DISPATCH_DEADLINE_MS, "0" * 32, 1, ""))
+    return pl.Reservation(attempt_id=attempt_id, snapshot_id=snapshot.snapshot_id, grant_id=grant_id,
+                          reserved_micro_usd=amount, pricing_revision=snapshot.revisions["pricing"],
+                          limits_revision="limits:test", deadline_ms=now_ms + pl.DISPATCH_DEADLINE_MS)
+
+
 class FakeLedger:
     """Chỉ trong test. Ghi một dòng vào bảng thăm dò trong CÙNG transaction."""
 
@@ -50,6 +86,7 @@ class FakeLedger:
         tx.conn.execute("INSERT INTO ledger_probe VALUES(?)", (grant_id,))
         if self.fail:
             raise RuntimeError("ledger hỏng")
+        return _fake_reserve(tx, snapshot, grant_id, now_ms)
 
 
 class CrashLedger:
@@ -399,7 +436,7 @@ class SlowLedger(FakeLedger):
     def reserve_locked(self, tx, *, snapshot, grant_id, now_ms):
         import time
         time.sleep(0.02)
-        super().reserve_locked(tx, snapshot=snapshot, grant_id=grant_id, now_ms=now_ms)
+        return super().reserve_locked(tx, snapshot=snapshot, grant_id=grant_id, now_ms=now_ms)
 
 
 def _race_worker(db_path, jobs, barrier, out):
@@ -522,8 +559,11 @@ def test_purge_keeps_consumed_and_deletes_only_never_sent_after_30_days(env):
     _, doc, conn = env
     used = snapshot(conn, doc)
     used_grant = issue(conn, used)
-    authorize(conn, used, used_grant.token)
-    ps.finish(conn, used, outcome="failed", now_ms=T0 + 3000)          # failed: chi phí có thể chưa đối soát
+    auth = authorize(conn, used, used_grant.token)
+    # P2 (#43): snapshot cloud đã giữ tiền chỉ đóng được qua sổ. `ps.finish` thẳng tay
+    # nay là SETTLEMENT_REQUIRED, nên đi đúng đường: quyết toán rồi snapshot mới failed.
+    pl.settle(conn, auth.reservation.attempt_id, usage=pl.Usage(input_tokens=1, output_tokens=1),
+              outcome="failed", now_ms=T0 + 3000)
     revoked_sid = snapshot(conn, doc)
     revoked = issue(conn, revoked_sid)
     pg.revoke(conn, revoked.grant_id, principal=Principal(UI_SECRET), now_ms=T0 + 3000)

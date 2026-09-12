@@ -9,12 +9,14 @@ nào tới mạng.
 """
 import multiprocessing as mp
 import os
+import secrets
 import sqlite3
 from pathlib import Path
 
 import pytest
 
 from tro_ly_van_ban import provider_grants as pg
+from tro_ly_van_ban import provider_ledger as pl
 from tro_ly_van_ban import provider_snapshot as ps
 from tro_ly_van_ban.provider_grants import Principal, RequestExists
 from tro_ly_van_ban.provider_snapshot import AlreadyClaimed, SnapshotError, TrustedConfig
@@ -38,6 +40,28 @@ def make_config(**changes):
     return TrustedConfig(**base)
 
 
+def _fake_reserve(tx, snapshot, grant_id, now_ms, amount=1000):
+    """Ghi một dòng sổ THẬT trong cùng transaction, rồi trả Reservation khớp dòng đó.
+
+    Từ LEDGER-01 (P1), `authorize_dispatch` đối chiếu Reservation với dòng sổ thật, nên
+    ledger giả trong test grant cũng phải ghi thật. Số học tiền là việc của
+    `test_provider_ledger.py`; ở đây chỉ cần một khoản giữ hợp lệ.
+    """
+    pl.ensure_schema(tx.conn)
+    attempt_id = secrets.token_hex(16)
+    tx.conn.execute(
+        "INSERT INTO ledger_attempts(attempt_id, snapshot_id, grant_id, provider, model, endpoint,"
+        " pricing_revision, pricing_pinned, limits_revision, reserved_micro_usd, started_at_ms,"
+        " deadline_ms, owner_id, owner_pid, owner_start_token, state)"
+        " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'reserved')",
+        (attempt_id, snapshot.snapshot_id, grant_id, "deepseek", "synthetic-ds", "synthetic-endpoint/0",
+         snapshot.revisions["pricing"], b"{}", "limits:test", amount, now_ms,
+         now_ms + pl.DISPATCH_DEADLINE_MS, "0" * 32, 1, ""))
+    return pl.Reservation(attempt_id=attempt_id, snapshot_id=snapshot.snapshot_id, grant_id=grant_id,
+                          reserved_micro_usd=amount, pricing_revision=snapshot.revisions["pricing"],
+                          limits_revision="limits:test", deadline_ms=now_ms + pl.DISPATCH_DEADLINE_MS)
+
+
 class FakeLedger:
     """Chỉ trong test. Ghi một dòng vào bảng thăm dò trong CÙNG transaction."""
 
@@ -50,6 +74,7 @@ class FakeLedger:
         tx.conn.execute("INSERT INTO ledger_probe VALUES(?)", (grant_id,))
         if self.fail:
             raise RuntimeError("ledger hỏng")
+        return _fake_reserve(tx, snapshot, grant_id, now_ms)
 
 
 class CrashLedger:
@@ -399,7 +424,7 @@ class SlowLedger(FakeLedger):
     def reserve_locked(self, tx, *, snapshot, grant_id, now_ms):
         import time
         time.sleep(0.02)
-        super().reserve_locked(tx, snapshot=snapshot, grant_id=grant_id, now_ms=now_ms)
+        return super().reserve_locked(tx, snapshot=snapshot, grant_id=grant_id, now_ms=now_ms)
 
 
 def _race_worker(db_path, jobs, barrier, out):

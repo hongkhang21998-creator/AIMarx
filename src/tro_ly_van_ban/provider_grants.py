@@ -17,6 +17,7 @@ import hashlib
 import hmac
 import re
 import secrets
+import sqlite3
 from dataclasses import dataclass, field
 
 from . import provider_snapshot as ps
@@ -77,10 +78,15 @@ class IssuedGrant:
 @dataclass(frozen=True)
 class Authorization:
     """Kết quả duy nhất cho phép adapter gửi `snapshot.payload_bytes`, và chỉ tồn tại
-    khi ledger đã giữ ngân sách trong cùng transaction."""
+    khi ledger đã giữ ngân sách trong cùng transaction.
+
+    P1 (LEDGER-01): mang theo `reservation` — adapter quyết toán vào đúng khoản đã giữ
+    chứ không tự tra DB theo `snapshot_id`. Một nguồn sự thật, không có đường đọc thứ hai.
+    """
 
     grant_id: str
     snapshot: SnapshotView
+    reservation: object
 
 
 def ensure_schema(conn) -> None:
@@ -167,6 +173,38 @@ def issue_grant(conn, snapshot_id: str, *, principal: Principal, now_ms: int) ->
     return IssuedGrant(grant_id=grant_id, token=token, expires_at_ms=expires)
 
 
+def _check_reservation(conn, reservation, view, grant_id):
+    """Điều kiện 1: `reserve_locked` trả None, sai kiểu, hay khoản giữ không khớp thì
+    KHÔNG được có Authorization hợp lệ — lỗi ở đây kéo rollback cả claim snapshot lẫn
+    tiêu thụ grant.
+
+    Kiểm cả object trả về **và** dòng thật trong DB của cùng transaction: một ledger giả
+    trả Reservation đẹp mà không ghi gì sẽ bị bắt ở đây. Không nhận callback hay "proof"
+    do UI/MCP/model tự khai làm bằng chứng giữ tiền — bằng chứng duy nhất là dòng sổ.
+    """
+    fields = ("attempt_id", "snapshot_id", "grant_id", "reserved_micro_usd", "pricing_revision")
+    if reservation is None or any(not hasattr(reservation, f) for f in fields):
+        raise SnapshotError("LEDGER_UNAVAILABLE", "NO_RESERVATION")
+    attempt_id = reservation.attempt_id
+    if type(attempt_id) is not str or not _HEX32.fullmatch(attempt_id):
+        raise SnapshotError("LEDGER_UNAVAILABLE", "RESERVATION_SHAPE")
+    if reservation.snapshot_id != view.snapshot_id or reservation.grant_id != grant_id:
+        raise SnapshotError("LEDGER_UNAVAILABLE", "RESERVATION_BINDING")
+    if reservation.pricing_revision != view.revisions["pricing"]:
+        raise SnapshotError("LEDGER_UNAVAILABLE", "RESERVATION_PRICING")
+    reserved = reservation.reserved_micro_usd
+    if type(reserved) is not int or reserved <= 0:
+        raise SnapshotError("LEDGER_UNAVAILABLE", "RESERVATION_AMOUNT")
+    try:
+        row = conn.execute("SELECT snapshot_id, grant_id, reserved_micro_usd, state FROM ledger_attempts"
+                           " WHERE attempt_id=?", (attempt_id,)).fetchone()
+    except sqlite3.Error:
+        # Sổ chưa có bảng, hỏng, hay không đọc được: chặn, không đoán là đã giữ (L15).
+        raise SnapshotError("LEDGER_UNAVAILABLE", "LEDGER_UNREADABLE") from None
+    if row is None or row[0] != view.snapshot_id or row[1] != grant_id or row[2] != reserved or row[3] != "reserved":
+        raise SnapshotError("LEDGER_UNAVAILABLE", "RESERVATION_NOT_RECORDED")
+
+
 def authorize_dispatch(conn, snapshot_id: str, token: str, *, principal: Principal, config: TrustedConfig,
                        now_ms: int, ledger) -> Authorization:
     """Đường cloud duy nhất. Một transaction do hàm này sở hữu (điều kiện 1):
@@ -230,14 +268,15 @@ def authorize_dispatch(conn, snapshot_id: str, token: str, *, principal: Princip
                 _end_grant(conn, grant_id, "voided", "SNAPSHOT_" + claimed.state.upper(), now_ms)
                 outcome = _consent_required("SNAPSHOT_" + claimed.state.upper())
         if outcome is None:
-            reserve(tx, snapshot=view, grant_id=grant_id, now_ms=now_ms)  # lỗi ở đây → rollback cả khối
+            reservation = reserve(tx, snapshot=view, grant_id=grant_id, now_ms=now_ms)  # lỗi ở đây → rollback cả khối
+            _check_reservation(conn, reservation, view, grant_id)  # sai/thiếu khoản giữ cũng rollback
             moved = conn.execute("UPDATE provider_grants SET state='consumed', consumed_at_ms=?, attempts_used=1"
                                  " WHERE grant_id=? AND state='issued'", (now_ms, grant_id)).rowcount
             if moved != 1:  # CAS là lớp thứ hai, độc lập với khoá
                 raise RequestExists("consumed", _snapshot_state(conn, snapshot_id))
     if outcome is not None:
         raise outcome  # khối with đã commit trạng thái chết
-    return Authorization(grant_id=grant_id, snapshot=view)
+    return Authorization(grant_id=grant_id, snapshot=view, reservation=reservation)
 
 
 def revoke(conn, grant_id: str, *, principal: Principal, now_ms: int) -> None:

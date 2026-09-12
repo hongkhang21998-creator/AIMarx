@@ -6,6 +6,12 @@
 
 Theo chỉ đạo anh Nguyen Hong Khang: giữ UX/UI hiện tại, không đầu tư làm lại vỏ giao diện. Ưu tiên khả năng hiểu tài liệu, đề xuất kế hoạch, tự tổ chức thực hiện và chất lượng kết quả. Chỉ bổ sung giao diện tối thiểu để xác nhận gửi API, hỏi thông tin thiếu và xem kết quả. Mục này thay các ưu tiên cũ bên dưới; giữ các ghi chép cũ làm lịch sử.
 
+### Quyết định 12/09/2026 — SLM điều phối tuần tự trên máy 8 GB
+
+Theo chỉ đạo anh Nguyen Hong Khang, AIMarx phải chia yêu cầu thành từng bước và từng thành phần nhỏ, xếp theo thứ tự phụ thuộc rồi giao cho các agent lần lượt. Bản đầu chỉ cho phép một agent/worker hoạt động tại một thời điểm; không lấy xử lý song song làm mục tiêu. Kết quả và trạng thái phải được lưu sau mỗi bước để dừng, tiếp tục, retry có giới hạn và phục hồi sau restart.
+
+Quyết định này áp dụng cho HOS-01–05: ưu tiên một workflow hoàn chỉnh, đúng nguồn và có người duyệt trên cấu hình 8 GB trước khi xem xét concurrency. “Swarm” trong giai đoạn đầu là nhiều vai trò phối hợp qua hàng đợi tuần tự; không yêu cầu nhiều model cùng nằm trong RAM.
+
 ### Chính sách dữ liệu và trạng thái thực tế
 
 - Đã chốt: tài liệu công khai/giả lập được xét dùng API; nội bộ/hạn chế/chưa phân loại giữ local. Nhãn phải do người dùng xác định; model không được tự nâng quyền. Nguồn trộn và nội dung dẫn xuất không được làm mất hạn chế của nguồn.

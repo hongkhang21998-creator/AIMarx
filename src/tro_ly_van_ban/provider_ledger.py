@@ -27,6 +27,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
 
+from . import provider_grants as pg
 from . import provider_snapshot as ps
 from .provider_snapshot import SnapshotError, SnapshotView, canonical_json
 
@@ -35,7 +36,9 @@ VN_OFFSET_MS = 7 * 60 * 60 * 1000       # L6: UTC+7 cố định, Việt Nam kh�
 DISPATCH_DEADLINE_MS = 60 * 1000        # PSC-01 mục 6: hạn chót một request
 RECOVERY_GRACE_MS = 5 * 60 * 1000       # L10/L14: chỉ recover sau deadline bền vững
 CLOCK_BACK_TOLERANCE_MS = 5 * 60 * 1000 # L14
-CLOCK_FORWARD_MAX_MS = 24 * 60 * 60 * 1000
+# Nhảy tới tương lai bao xa thì coi là hỏng. Phải đủ rộng để một máy nghỉ vài tháng
+# rồi mở lại vẫn đối soát được — chặn ở 24 giờ thì chính việc nghỉ dài đã bị coi là tấn công.
+CLOCK_FORWARD_MAX_MS = 400 * 24 * 60 * 60 * 1000
 MIN_RESERVE_MICRO_USD = 1               # L5: v1 luôn giữ ít nhất 1 micro-USD
 RATE_CARD_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000   # PSC-01: expires_at ≤ 7 ngày kể từ verified_at
 
@@ -143,7 +146,7 @@ _ENTRY_KEYS = frozenset({
     "provider", "model", "endpoint", "currency",
     "input_micro_usd_per_mtok", "output_micro_usd_per_mtok", "request_fee_micro_usd",
     "bound_method", "bound_overhead_tokens_per_message", "bound_overhead_tokens_fixed",
-    "billable_inputs_verified", "output_includes_reasoning_cap",
+    "billable_inputs_verified", "output_includes_reasoning_cap", "context_limit_tokens",
     "verified_at_ms", "expires_at_ms", "source",
 })
 _LIMIT_KEYS = frozenset({"schema", "request_micro_usd", "day_micro_usd", "month_micro_usd"})
@@ -167,12 +170,14 @@ def _validate_rate_card_entry(entry, *, now_ms):
             raise LedgerError("PRICING_UNVERIFIED", "UNIT_PRICE")
     if not _is_int(entry["request_fee_micro_usd"], 0, MAX_AMOUNT_MICRO_USD):
         raise LedgerError("PRICING_UNVERIFIED", "REQUEST_FEE")
-    if entry["bound_method"] not in VERIFIED_BOUND_METHODS:
+    if type(entry["bound_method"]) is not str or entry["bound_method"] not in VERIFIED_BOUND_METHODS:
         raise LedgerError("PRICING_UNVERIFIED", "BOUND_METHOD")
     for key in ("bound_overhead_tokens_per_message", "bound_overhead_tokens_fixed"):
         if not _is_int(entry[key], 0, 100_000):
             raise LedgerError("PRICING_UNVERIFIED", "BOUND_OVERHEAD")
     # `is not True` để một chuỗi rỗng/None/1 không đi qua được chỗ này.
+    if not _is_int(entry["context_limit_tokens"], 1, MAX_TOKENS):
+        raise LedgerError("PRICING_UNVERIFIED", "CONTEXT_UNVERIFIED")
     if entry["billable_inputs_verified"] is not True:
         raise LedgerError("PRICING_UNVERIFIED", "BILLABLE_UNVERIFIED")
     if entry["output_includes_reasoning_cap"] is not True:
@@ -185,6 +190,8 @@ def _validate_rate_card_entry(entry, *, now_ms):
         raise LedgerError("PRICING_UNVERIFIED", "EXPIRY_ORDER")
     if entry["expires_at_ms"] - entry["verified_at_ms"] > RATE_CARD_MAX_AGE_MS:
         raise LedgerError("PRICING_UNVERIFIED", "EXPIRY_TOO_FAR")
+    if now_ms is not None and now_ms < entry["verified_at_ms"]:
+        raise LedgerError("PRICING_UNVERIFIED", "VERIFIED_IN_FUTURE")
     if now_ms is not None and now_ms >= entry["expires_at_ms"]:
         raise LedgerError("PRICING_UNVERIFIED", "EXPIRED")
     return entry
@@ -236,7 +243,8 @@ def load_config(path) -> tuple:
         data = json.loads(raw)
     except (ValueError, UnicodeDecodeError):
         raise _unavailable("CONFIG_UNREADABLE") from None
-    if type(data) is not dict or data.get("schema") != RATE_CARD_SCHEMA:
+    if (type(data) is not dict or data.get("schema") != RATE_CARD_SCHEMA
+            or set(data) - {"schema", "entries", "limits"}):
         raise _unavailable("CONFIG_SCHEMA")
     entries = data.get("entries")
     if type(entries) is not list or len(entries) > 256:
@@ -315,6 +323,9 @@ def _check_clock(conn, now_ms):
         if now_ms < high and _bucket(now_ms)[2] != _bucket(high)[2]:
             raise _unavailable("CLOCK_BACKWARD_MONTH")
         if now_ms > high + CLOCK_FORWARD_MAX_MS:
+            # Chặn TRƯỚC khi ghi: mốc cao nhất không bị nhiễm, nên sửa lại đồng hồ là
+            # sổ chạy tiếp bình thường. Nếu để giá trị hoang vào đây thì mọi lượt sau
+            # đều bị coi là lùi và sổ chết hẳn.
             raise _unavailable("CLOCK_FORWARD")
     conn.execute("INSERT INTO ledger_clock(id, high_water_ms) VALUES(1, ?)"
                  " ON CONFLICT(id) DO UPDATE SET high_water_ms=MAX(high_water_ms, excluded.high_water_ms)",
@@ -352,7 +363,9 @@ def ensure_schema(conn) -> None:
         owner_start_token TEXT NOT NULL,
         state TEXT NOT NULL CHECK(state IN ({_STATES_SQL})),
         ended_at_ms INTEGER,
-        end_reason TEXT)""")
+        end_reason TEXT,
+        settlement_fingerprint TEXT,
+        resolution_fingerprint TEXT)""")
     conn.execute("CREATE INDEX IF NOT EXISTS ledger_attempts_state ON ledger_attempts(state, started_at_ms)")
     # Chỉ ghi thêm (L16). Không có đường xoá trong mã; không tự purge.
     conn.execute("""CREATE TABLE IF NOT EXISTS ledger_events(
@@ -404,8 +417,17 @@ def _guard_overflow(conn):
     đã ở tình trạng không ai hình dung tới: chặn, không đoán (L15).
     """
     count = conn.execute("SELECT COUNT(*) FROM ledger_attempts").fetchone()[0]
-    if count > MAX_ROWS:
+    if count >= MAX_ROWS:
         raise _unavailable("LEDGER_TOO_LARGE")
+    invalid = conn.execute("""SELECT 1 FROM ledger_attempts WHERE
+        (state IN ('settled','reconciled','over_reserve') AND actual_micro_usd IS NULL)
+        OR (state IN ('reserved','unresolved') AND actual_micro_usd IS NOT NULL)
+        OR (state='released' AND (actual_micro_usd IS NULL OR actual_micro_usd != 0))
+        OR (state='over_reserve' AND actual_micro_usd <= reserved_micro_usd)
+        OR (state='settled' AND actual_micro_usd > reserved_micro_usd)
+        LIMIT 1""").fetchone()
+    if invalid is not None:
+        raise _unavailable("LEDGER_STATE_CORRUPT")
 
 
 def _period_total(conn, start, end):
@@ -579,6 +601,14 @@ class Ledger:
         if not _is_int(output_cap, 1, 2048):
             raise _invalid("OUTPUT_CAP")
         bound = input_bound_tokens(entry, payload_size=snapshot.payload_size, message_count=len(messages))
+        context_limit = entry["context_limit_tokens"]
+        requested_context = settings.get("context_tokens")
+        if requested_context is not None:
+            if not _is_int(requested_context, 1, MAX_TOKENS):
+                raise _invalid("CONTEXT")
+            context_limit = min(context_limit, requested_context)
+        if bound + output_cap > context_limit:
+            raise LedgerError("PRICING_UNVERIFIED", "CONTEXT_BOUND_EXCEEDED")
         reserved = max(price_micro_usd(entry, input_tokens=bound, output_tokens=output_cap),
                        MIN_RESERVE_MICRO_USD)   # L5: rate card thử ra 0 vẫn phải chạm hạn mức 0
 
@@ -616,3 +646,298 @@ class Ledger:
                            reserved_micro_usd=reserved, pricing_revision=revision,
                            limits_revision=limits_revision(limits),
                            deadline_ms=now_ms + DISPATCH_DEADLINE_MS)
+
+
+# ---------- quyết toán (P2, L8, L11, L13) ----------
+
+@dataclass(frozen=True)
+class Usage:
+    """Số token **thật** do adapter đọc từ phản hồi provider.
+
+    Chỉ backend adapter được cấp dữ liệu này. Kiểu đóng kiểm hình dạng, không xác
+    thực caller Python; không được nối trực tiếp với input UI/MCP. Không có usage
+    là unresolved, không phải 0 (L13).
+    """
+
+    input_tokens: int
+    output_tokens: int
+
+
+@dataclass(frozen=True)
+class UnsentProof:
+    """Bằng chứng của **transport backend** rằng chưa byte nào rời máy (L13).
+
+    `release_unsent` không nhận bool hay chuỗi tuỳ ý của caller. Chỉ những giai đoạn
+    dưới đây mới chứng minh được là chưa gửi; timeout không rõ **không** nằm trong đó,
+    vì provider vẫn có thể đã nhận và tính phí.
+    """
+
+    stage: str
+    error_class: str
+    bytes_sent: int
+
+
+# Trước khi body rời socket. `write_timeout`, `read_timeout`, `response_*` cố ý vắng mặt.
+PRE_SEND_STAGES = frozenset({"dns", "tcp_connect", "tls_handshake", "pool_timeout", "proxy_refused"})
+UNRESOLVED_REASONS = frozenset({"TRANSPORT_TIMEOUT", "RESPONSE_INVALID", "USAGE_MISSING"})
+
+
+def _attempt(conn, attempt_id):
+    if type(attempt_id) is not str or not _HEX32.fullmatch(attempt_id):
+        raise _invalid("ATTEMPT_ID")
+    row = conn.execute(
+        "SELECT snapshot_id, provider, pricing_pinned, reserved_micro_usd, actual_micro_usd, state, started_at_ms"
+        " FROM ledger_attempts WHERE attempt_id=?", (attempt_id,)).fetchone()
+    if row is None:
+        raise _invalid("ATTEMPT_NOT_FOUND")
+    return row
+
+
+def _pinned(blob):
+    """Giá đã ghim lúc giữ tiền. Quyết toán attempt cũ bằng ĐÚNG giá đó, kể cả khi rate
+    card hiện hành đã đổi hoặc hết hạn (L4) — nên không kiểm `now_ms` ở đây."""
+    try:
+        entry = json.loads(bytes(blob))
+    except (ValueError, TypeError):
+        raise _unavailable("PINNED_PRICING_CORRUPT") from None
+    return _validate_rate_card_entry(entry, now_ms=None)
+
+
+def _cas(conn, attempt_id, from_state, to_state, *, actual, now_ms, reason):
+    moved = conn.execute(
+        "UPDATE ledger_attempts SET state=?, actual_micro_usd=?, ended_at_ms=?, end_reason=?"
+        " WHERE attempt_id=? AND state=?",
+        (to_state, actual, now_ms, reason, attempt_id, from_state)).rowcount
+    if moved != 1:   # CAS là lớp thứ hai, độc lập với khoá
+        raise _unavailable("STATE_RACE")
+
+
+def _lock_provider(conn, provider, attempt_id, reason, now_ms):
+    conn.execute("INSERT INTO ledger_locks(provider, locked_at_ms, reason, attempt_id) VALUES(?,?,?,?)"
+                 " ON CONFLICT(provider) DO NOTHING", (provider, now_ms, reason, attempt_id))
+
+
+def _fingerprint(value):
+    return hashlib.sha256(canonical_json(value)).hexdigest()
+
+
+def _close_failed(tx, snapshot_id, now_ms):
+    """Close an interrupted attempt without manufacturing a successful output."""
+    row = tx.conn.execute("SELECT state FROM provider_snapshots WHERE snapshot_id=?", (snapshot_id,)).fetchone()
+    if row is None:
+        raise _unavailable("SNAPSHOT_MISSING")
+    if row[0] == "dispatching":
+        ps._finish_locked(tx, snapshot_id, outcome="failed", now_ms=now_ms)
+    elif row[0] not in ("completed", "failed"):
+        raise _unavailable("SNAPSHOT_STATE")
+
+
+def settle(conn, attempt_id: str, *, usage, outcome: str, now_ms: int) -> str:
+    """Quyết toán khoản giữ và đóng snapshot trong **một** transaction (P2, điều kiện 2).
+
+    Ledger, dòng sự kiện, khoá provider và trạng thái snapshot cùng commit hoặc cùng
+    rollback. Trả về trạng thái cuối của khoản tiền.
+
+    Hai trục tách rời (điều kiện 2): `outcome` là kết quả **nghiệp vụ** do adapter báo,
+    `usage` là **tiền**. Output sai schema vẫn mất tiền → `outcome="failed"` mà khoản
+    tiền vẫn `settled`. Không bao giờ suy ra snapshot `completed` chỉ vì usage hợp lệ,
+    và không đụng tới phiên bản nghiệp vụ — duyệt văn bản là việc của người, ở chỗ khác.
+
+    Idempotent (L11): gọi lại với **cùng** kết quả không cộng tiền lần hai; gọi lại với
+    kết quả **mâu thuẫn** thì ghi một dòng sự kiện rồi báo lỗi, không ghi đè im lặng.
+    """
+    if type(attempt_id) is not str or not _HEX32.fullmatch(attempt_id):
+        raise _invalid("ATTEMPT_ID")
+    ps._check_now(now_ms)
+    ps._check_outcome(outcome)
+    if usage is not None and type(usage) is not Usage:
+        raise _invalid("USAGE_TYPE")
+    if usage is not None and (not _is_int(usage.input_tokens, 0, MAX_TOKENS)
+                              or not _is_int(usage.output_tokens, 0, MAX_TOKENS)):
+        raise _invalid("USAGE_VALUE")
+    fingerprint = _fingerprint({"outcome": outcome, "usage": None if usage is None else
+                                [usage.input_tokens, usage.output_tokens]})
+    conflict = None
+    with ps._transaction(conn) as tx:
+        ensure_schema(conn)
+        _check_clock(conn, now_ms)   # thời gian do backend cấp; model không đưa được vào đây
+        snapshot_id, provider, pinned, reserved, prior_actual, state, _ = _attempt(conn, attempt_id)
+
+        if state != "reserved":
+            # Đã quyết toán rồi. Trùng khớp thì im lặng thành công; lệch thì không ghi đè.
+            previous = conn.execute("SELECT settlement_fingerprint FROM ledger_attempts WHERE attempt_id=?",
+                                    (attempt_id,)).fetchone()[0]
+            if previous == fingerprint:
+                return state
+            conflict = LedgerError("LEDGER_UNAVAILABLE", "SETTLEMENT_CONFLICT")
+            _event(conn, attempt_id, at_ms=now_ms, from_state=state, to_state=state, amount=prior_actual,
+                   reason="CONFLICTING_SETTLEMENT")
+        else:
+            if usage is None:
+                # Thiếu usage: KHÔNG coi là 0. Tiền vẫn bị giữ đủ cho tới khi đối soát (L13).
+                _cas(conn, attempt_id, "reserved", "unresolved", actual=None, now_ms=now_ms, reason="USAGE_MISSING")
+                _event(conn, attempt_id, at_ms=now_ms, from_state="reserved", to_state="unresolved",
+                       amount=reserved, reason="USAGE_MISSING")
+                final = "unresolved"
+            else:
+                entry = _pinned(pinned)
+                if not _is_int(usage.input_tokens, 0, MAX_TOKENS) or not _is_int(usage.output_tokens, 0, MAX_TOKENS):
+                    raise _invalid("USAGE_VALUE")
+                actual = price_micro_usd(entry, input_tokens=usage.input_tokens, output_tokens=usage.output_tokens)
+                if actual > reserved:
+                    # L11: ghi ĐỦ số thật, không cắt cho khớp khoản giữ, và khoá riêng provider đó.
+                    _cas(conn, attempt_id, "reserved", "over_reserve", actual=actual, now_ms=now_ms,
+                         reason="ACTUAL_OVER_RESERVE")
+                    _lock_provider(conn, provider, attempt_id, "OVER_RESERVE", now_ms)
+                    _event(conn, attempt_id, at_ms=now_ms, from_state="reserved", to_state="over_reserve",
+                           amount=actual, reason="ACTUAL_OVER_RESERVE")
+                    final = "over_reserve"
+                else:
+                    _cas(conn, attempt_id, "reserved", "settled", actual=actual, now_ms=now_ms, reason="SETTLED")
+                    _event(conn, attempt_id, at_ms=now_ms, from_state="reserved", to_state="settled",
+                           amount=actual, reason="SETTLED")
+                    final = "settled"
+            conn.execute("UPDATE ledger_attempts SET settlement_fingerprint=? WHERE attempt_id=?",
+                         (fingerprint, attempt_id))
+            # Cùng transaction: tiền và snapshot không bao giờ lệch nhau (P2).
+            ps._finish_locked(tx, snapshot_id, outcome=outcome, now_ms=now_ms)
+    if conflict is not None:
+        raise conflict   # dòng sự kiện mâu thuẫn đã commit; khoản tiền không đổi
+    return final
+
+
+def mark_unresolved(conn, attempt_id: str, *, reason: str, now_ms: int) -> None:
+    """Adapter/backend biết request đã đi nhưng không biết tốn bao nhiêu (timeout sau khi
+    gửi, phản hồi hỏng). Tiền vẫn bị giữ đủ trên mọi kỳ cho tới khi đối soát."""
+    if type(reason) is not str or reason not in UNRESOLVED_REASONS:
+        raise _invalid("REASON")
+    ps._check_now(now_ms)
+    with ps._transaction(conn) as tx:
+        ensure_schema(conn)
+        _check_clock(conn, now_ms)
+        snapshot_id, _, _, reserved, _, state, _ = _attempt(conn, attempt_id)
+        if state == "unresolved":
+            return                      # idempotent
+        if state != "reserved":
+            raise _unavailable("SETTLEMENT_CONFLICT")
+        _cas(conn, attempt_id, "reserved", "unresolved", actual=None, now_ms=now_ms, reason=reason)
+        _event(conn, attempt_id, at_ms=now_ms, from_state="reserved", to_state="unresolved",
+               amount=reserved, reason=reason)
+        _close_failed(tx, snapshot_id, now_ms)
+
+
+def release_unsent(conn, attempt_id: str, *, proof, now_ms: int) -> None:
+    """Trả lại khoản giữ — CHỈ khi transport chứng minh chưa byte nào rời máy (L13).
+
+    Không bao giờ hồi sinh grant đã tiêu thụ: hàm này không đụng bảng grant. Người dùng
+    muốn gửi lại thì cấp grant mới, vì snapshot cũ đã kết thúc.
+    """
+    if type(proof) is not UnsentProof:
+        raise _invalid("PROOF_TYPE")
+    if type(proof.stage) is not str or proof.stage not in PRE_SEND_STAGES or not _is_int(proof.bytes_sent, 0, 0) or not _is_str(proof.error_class, 1, 128):
+        # bytes_sent phải đúng bằng 0, và timeout không rõ không nằm trong PRE_SEND_STAGES.
+        raise _invalid("PROOF_INSUFFICIENT")
+    fingerprint = _fingerprint({"stage": proof.stage, "error_class": proof.error_class, "bytes_sent": 0})
+    ps._check_now(now_ms)
+    with ps._transaction(conn) as tx:
+        ensure_schema(conn)
+        _check_clock(conn, now_ms)
+        snapshot_id, _, _, reserved, _, state, _ = _attempt(conn, attempt_id)
+        if state == "released":
+            prior = conn.execute("SELECT resolution_fingerprint FROM ledger_attempts WHERE attempt_id=?",
+                                 (attempt_id,)).fetchone()[0]
+            if prior != fingerprint:
+                raise _unavailable("RELEASE_CONFLICT")
+            return
+        if state != "reserved":
+            raise _unavailable("SETTLEMENT_CONFLICT")
+        _cas(conn, attempt_id, "reserved", "released", actual=0, now_ms=now_ms, reason=proof.stage)
+        _event(conn, attempt_id, at_ms=now_ms, from_state="reserved", to_state="released", amount=0,
+               reason="UNSENT_" + proof.stage.upper())
+        conn.execute("UPDATE ledger_attempts SET resolution_fingerprint=? WHERE attempt_id=?",
+                     (fingerprint, attempt_id))
+        _close_failed(tx, snapshot_id, now_ms)
+
+
+def reconcile(conn, attempt_id: str, *, principal, actual_micro_usd: int, evidence: str, now_ms: int) -> None:
+    """Đối soát tay tại UI local (L12). Chỉ API nội bộ/test — gói này KHÔNG mở route.
+
+    `principal` hiện mới là định danh phiên tiến trình UI, chưa phải người đã đăng nhập
+    (điều kiện 3 của grant còn nguyên). Ghi thêm dòng sự kiện kèm bằng chứng, không sửa
+    dòng sự kiện cũ. Mở khoá provider chỉ khi mọi sự cố khác của provider đó đã xong.
+    """
+    if type(principal) is not pg.Principal:
+        raise _invalid("PRINCIPAL")
+    if not _amount(actual_micro_usd):
+        raise _invalid("ACTUAL")
+    if not _is_str(evidence, 1, MAX_EVIDENCE):
+        # Ghi chú của người, không phải nội dung tài liệu: giới hạn 500 ký tự (L12).
+        raise _invalid("EVIDENCE")
+    fingerprint = _fingerprint({"principal": principal._stored(), "actual": actual_micro_usd,
+                                "evidence": evidence})
+    ps._check_now(now_ms)
+    with ps._transaction(conn) as tx:
+        ensure_schema(conn)
+        _check_clock(conn, now_ms)
+        snapshot_id, provider, _, _, _, state, _ = _attempt(conn, attempt_id)
+        if state == "reconciled":
+            prior = conn.execute("SELECT resolution_fingerprint FROM ledger_attempts WHERE attempt_id=?",
+                                 (attempt_id,)).fetchone()[0]
+            if prior != fingerprint:
+                raise _unavailable("RECONCILIATION_CONFLICT")
+            return
+        if state not in ("unresolved", "over_reserve"):
+            raise _unavailable("NOT_RECONCILABLE")
+        _cas(conn, attempt_id, state, "reconciled", actual=actual_micro_usd, now_ms=now_ms, reason="RECONCILED")
+        _event(conn, attempt_id, at_ms=now_ms, from_state=state, to_state="reconciled", amount=actual_micro_usd,
+               reason="RECONCILED", principal_sha=principal._stored(), evidence=evidence)
+        conn.execute("UPDATE ledger_attempts SET resolution_fingerprint=? WHERE attempt_id=?",
+                     (fingerprint, attempt_id))
+        _close_failed(tx, snapshot_id, now_ms)
+        remaining = conn.execute(
+            "SELECT COUNT(*) FROM ledger_attempts WHERE provider=? AND state IN ('unresolved','over_reserve')",
+            (provider,)).fetchone()[0]
+        if remaining == 0:
+            # Provider lock không phải thứ mở được khi vẫn còn sự cố khác của chính provider đó.
+            conn.execute("DELETE FROM ledger_locks WHERE provider=?", (provider,))
+
+
+def recover_on_start(conn, *, now_ms: int, owner=None) -> int:
+    """Gọi MỘT lần lúc backend khởi động (L10). Idempotent, KHÔNG phát lại request nào.
+
+    Hai nhánh, và sự khác nhau là cốt lõi:
+    - đã **chứng minh** tiến trình giữ tiền chết → chuyển `unresolved` ngay;
+    - chưa chứng minh được (Windows không có /proc, hoặc tiến trình còn sống) → giữ
+      nguyên `reserved`, tính đủ phí, và chỉ chuyển sau deadline bền vững.
+
+    Không bao giờ đụng khoản của tiến trình còn sống chỉ vì có thêm một connection mở.
+    """
+    ps._check_now(now_ms)
+    mine = None if owner is None else owner.owner_id
+    moved = 0
+    with ps._transaction(conn) as tx:
+        ensure_schema(conn)
+        _check_clock(conn, now_ms)
+        rows = conn.execute("SELECT attempt_id, owner_id, owner_pid, owner_start_token, deadline_ms,"
+                            " reserved_micro_usd, snapshot_id FROM ledger_attempts WHERE state='reserved'").fetchall()
+        for attempt_id, owner_id, pid, token, deadline, reserved, snapshot_id in rows:
+            if owner_id == mine:
+                continue                                  # chính tiến trình này đang giữ
+            dead = _owner_dead(pid, token)
+            if dead is True:
+                reason = "OWNER_DEAD"
+            elif now_ms >= deadline + RECOVERY_GRACE_MS:
+                reason = "DEADLINE_PASSED"
+            else:
+                continue                                  # còn sống hoặc chưa biết: chờ
+            _cas(conn, attempt_id, "reserved", "unresolved", actual=None, now_ms=now_ms, reason=reason)
+            _event(conn, attempt_id, at_ms=now_ms, from_state="reserved", to_state="unresolved",
+                   amount=reserved, reason=reason)
+            _close_failed(tx, snapshot_id, now_ms)
+            moved += 1
+    return moved
+
+
+def locked_providers(conn) -> tuple:
+    ensure_schema(conn)
+    return tuple(r[0] for r in conn.execute("SELECT provider FROM ledger_locks ORDER BY provider"))

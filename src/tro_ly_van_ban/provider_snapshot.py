@@ -55,6 +55,7 @@ _MESSAGES = {
     "CONSENT_EXPIRED": "Bản xem trước đã hết hạn; hãy chuẩn bị lại",
     "LEDGER_UNAVAILABLE": "Kho dữ liệu đang bận hoặc không dùng được; thử lại sau",
     "CONSENT_REQUIRED": "Cần người dùng xác nhận trước khi gửi ra ngoài",
+    "SETTLEMENT_REQUIRED": "Yêu cầu này còn khoản chi chưa quyết toán; phải đóng qua sổ ngân sách",
 }
 
 # Khung soạn thảo tối thiểu để khoá hình dạng payload `draft`. Chưa đánh giá chất
@@ -396,23 +397,27 @@ def _transaction(conn):
     """
     if conn.in_transaction:
         raise RuntimeError("Kết nối đang có transaction mở; gateway cần tự mở BEGIN IMMEDIATE")
-    conn.execute(f"PRAGMA busy_timeout={int(BUSY_TIMEOUT_MS)}")
+    tx = None
     try:
+        conn.execute(f"PRAGMA busy_timeout={int(BUSY_TIMEOUT_MS)}")
         conn.execute("BEGIN IMMEDIATE")
-    except sqlite3.OperationalError:
-        raise SnapshotError("LEDGER_UNAVAILABLE", "DB_BUSY") from None
-    tx = _Tx(conn)
-    try:
-        ensure_schema(conn)  # trong transaction: DB bận thì ra LEDGER_UNAVAILABLE, không ra lỗi thô
+        tx = _Tx(conn)
+        ensure_schema(conn)
         yield tx
-    except BaseException:
-        tx.active = False
-        # SQLite có thể đã tự rollback (đầy đĩa, I/O); ROLLBACK lúc đó sẽ che mất lỗi gốc.
+        conn.execute("COMMIT")
+    except BaseException as exc:
         if conn.in_transaction:
-            conn.execute("ROLLBACK")
+            try:
+                conn.execute("ROLLBACK")
+            except sqlite3.Error:
+                # A broken connection must not be reused by the backend.
+                conn.close()
+        if isinstance(exc, sqlite3.Error):
+            raise SnapshotError("LEDGER_UNAVAILABLE", "DB_BUSY" if tx is None else "DB_ERROR") from None
         raise
-    tx.active = False
-    conn.execute("COMMIT")
+    finally:
+        if tx is not None:
+            tx.active = False
 
 
 def _require_tx(tx):
@@ -634,24 +639,84 @@ def _claim_locked(tx, snapshot_id, *, config, now_ms, expected_decision) -> Snap
     return _view(row)
 
 
+def _end_locked(conn, snapshot_id, from_state, to_state, reason, now_ms):
+    moved = conn.execute("UPDATE provider_snapshots SET state=?, end_reason=?, ended_at_ms=?"
+                         " WHERE snapshot_id=? AND state=?", (to_state, reason, now_ms, snapshot_id, from_state)).rowcount
+    if moved != 1:
+        row = _row(conn, snapshot_id)
+        if row is None:
+            raise _invalid("SNAPSHOT_NOT_FOUND")
+        raise AlreadyClaimed(row[1])
+
+
 def _end(conn, snapshot_id, from_state, to_state, reason, now_ms):
     _check_id(snapshot_id)
     _check_now(now_ms)
     with _transaction(conn):
-        moved = conn.execute("UPDATE provider_snapshots SET state=?, end_reason=?, ended_at_ms=?"
-                             " WHERE snapshot_id=? AND state=?", (to_state, reason, now_ms, snapshot_id, from_state)).rowcount
-        if moved != 1:
-            row = _row(conn, snapshot_id)
-            if row is None:
-                raise _invalid("SNAPSHOT_NOT_FOUND")
-            raise AlreadyClaimed(row[1])
+        _end_locked(conn, snapshot_id, from_state, to_state, reason, now_ms)
+
+
+def _check_outcome(outcome):
+    if type(outcome) is not str or outcome not in ("completed", "failed"):
+        raise _invalid("OUTCOME")
+
+
+def _finish_locked(tx, snapshot_id: str, *, outcome: str, now_ms: int) -> None:
+    """Phần đóng snapshot của `finish`, NỘI BỘ gateway — P2 của LEDGER-01 (#43).
+
+    Cùng khuôn với `_claim_locked`: đòi vé `_Tx` của hàm ngoài, không commit, không
+    rollback. `provider_ledger.settle` sở hữu transaction và gọi hàm này, nên quyết
+    toán tiền, dòng sự kiện, khoá provider và trạng thái snapshot **cùng sống hoặc
+    cùng chết**. Crash giữa chừng không thể để lại snapshot `completed` mà tiền còn
+    `reserved`, hay ngược lại.
+
+    Hàm này cố ý **không** kiểm khoản ledger còn treo: nó là đường của chính sổ. Cửa
+    kiểm nằm ở `finish` công khai bên dưới.
+    """
+    _require_tx(tx)
+    _check_id(snapshot_id)
+    _check_now(now_ms)
+    _check_outcome(outcome)
+    _end_locked(tx.conn, snapshot_id, "dispatching", outcome, outcome.upper(), now_ms)
+
+
+def _ledger_pending(conn, snapshot_id):
+    """Snapshot này còn khoản tiền chưa quyết toán không?
+
+    Đọc — không ghi — bảng của sổ. Quyền sở hữu bảng vẫn thuộc `provider_ledger`; đây
+    là hàng rào một chiều để `finish` công khai không thành đường tắt vòng qua sổ.
+    Làm bằng đọc trực tiếp chứ không bằng callback do backend đăng ký, vì callback
+    quên đăng ký thì hàng rào biến mất mà không ai thấy.
+
+    Sổ chưa có bảng nghĩa là chưa từng giữ tiền: snapshot local đi qua đây không đổi
+    hành vi. Sổ có nhưng đọc không được thì chặn, không đoán (L15).
+    """
+    try:
+        row = conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='ledger_attempts'").fetchone()
+        if row is None:
+            return False
+        return conn.execute("SELECT 1 FROM ledger_attempts WHERE snapshot_id=?"
+                            " AND state IN ('reserved','unresolved','over_reserve')",
+                            (snapshot_id,)).fetchone() is not None
+    except sqlite3.Error:
+        raise SnapshotError("LEDGER_UNAVAILABLE", "LEDGER_UNREADABLE") from None
 
 
 def finish(conn, snapshot_id: str, *, outcome: str, now_ms: int) -> None:
-    """`dispatching` → `completed`/`failed`, sau khi kết quả đã được lưu qua `Service.save`."""
-    if outcome not in ("completed", "failed") or type(outcome) is not str:
-        raise _invalid("OUTCOME")
-    _end(conn, snapshot_id, "dispatching", outcome, outcome.upper(), now_ms)
+    """`dispatching` → `completed`/`failed`, sau khi kết quả đã được lưu qua `Service.save`.
+
+    Đường công khai này **từ chối** snapshot còn khoản ledger cần quyết toán (điều
+    kiện 2 của #43): nếu không, đóng snapshot bằng tay là bỏ qua sổ và khoản giữ nằm
+    lại mãi. Snapshot cloud phải đi qua `provider_ledger.settle`. Snapshot local không
+    có dòng sổ nào nên giữ nguyên hành vi cũ.
+    """
+    _check_outcome(outcome)
+    _check_id(snapshot_id)
+    _check_now(now_ms)
+    with _transaction(conn) as tx:
+        if _ledger_pending(conn, snapshot_id):
+            raise SnapshotError("SETTLEMENT_REQUIRED", "LEDGER_PENDING")
+        _finish_locked(tx, snapshot_id, outcome=outcome, now_ms=now_ms)
 
 
 def cancel(conn, snapshot_id: str, *, now_ms: int) -> None:

@@ -40,6 +40,18 @@ def make_config(**changes):
     return TrustedConfig(**base)
 
 
+# Mục rate card GIẢ LẬP tối thiểu, đủ hợp lệ để `settle` quyết toán bằng giá đã ghim.
+FAKE_RATE_ENTRY = {
+    "provider": "deepseek", "model": "synthetic-ds", "endpoint": "synthetic-endpoint/0", "currency": "USD",
+    "input_micro_usd_per_mtok": 1_000_000, "output_micro_usd_per_mtok": 2_000_000,
+    "request_fee_micro_usd": 0, "bound_method": "byte-level-verified",
+    "bound_overhead_tokens_per_message": 32, "bound_overhead_tokens_fixed": 256,
+    "billable_inputs_verified": True, "output_includes_reasoning_cap": True, "context_limit_tokens": 32768,
+    "verified_at_ms": T0 - 86_400_000, "expires_at_ms": T0 + 5 * 86_400_000,
+    "source": "https://vi-du.giaLap/gia",
+}
+
+
 def _fake_reserve(tx, snapshot, grant_id, now_ms, amount=1000):
     """Ghi một dòng sổ THẬT trong cùng transaction, rồi trả Reservation khớp dòng đó.
 
@@ -55,7 +67,7 @@ def _fake_reserve(tx, snapshot, grant_id, now_ms, amount=1000):
         " deadline_ms, owner_id, owner_pid, owner_start_token, state)"
         " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'reserved')",
         (attempt_id, snapshot.snapshot_id, grant_id, "deepseek", "synthetic-ds", "synthetic-endpoint/0",
-         snapshot.revisions["pricing"], b"{}", "limits:test", amount, now_ms,
+         snapshot.revisions["pricing"], ps.canonical_json(FAKE_RATE_ENTRY), "limits:test", amount, now_ms,
          now_ms + pl.DISPATCH_DEADLINE_MS, "0" * 32, 1, ""))
     return pl.Reservation(attempt_id=attempt_id, snapshot_id=snapshot.snapshot_id, grant_id=grant_id,
                           reserved_micro_usd=amount, pricing_revision=snapshot.revisions["pricing"],
@@ -547,8 +559,11 @@ def test_purge_keeps_consumed_and_deletes_only_never_sent_after_30_days(env):
     _, doc, conn = env
     used = snapshot(conn, doc)
     used_grant = issue(conn, used)
-    authorize(conn, used, used_grant.token)
-    ps.finish(conn, used, outcome="failed", now_ms=T0 + 3000)          # failed: chi phí có thể chưa đối soát
+    auth = authorize(conn, used, used_grant.token)
+    # P2 (#43): snapshot cloud đã giữ tiền chỉ đóng được qua sổ. `ps.finish` thẳng tay
+    # nay là SETTLEMENT_REQUIRED, nên đi đúng đường: quyết toán rồi snapshot mới failed.
+    pl.settle(conn, auth.reservation.attempt_id, usage=pl.Usage(input_tokens=1, output_tokens=1),
+              outcome="failed", now_ms=T0 + 3000)
     revoked_sid = snapshot(conn, doc)
     revoked = issue(conn, revoked_sid)
     pg.revoke(conn, revoked.grant_id, principal=Principal(UI_SECRET), now_ms=T0 + 3000)

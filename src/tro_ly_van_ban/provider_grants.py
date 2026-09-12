@@ -182,8 +182,8 @@ def _check_reservation(conn, reservation, view, grant_id):
     trả Reservation đẹp mà không ghi gì sẽ bị bắt ở đây. Không nhận callback hay "proof"
     do UI/MCP/model tự khai làm bằng chứng giữ tiền — bằng chứng duy nhất là dòng sổ.
     """
-    fields = ("attempt_id", "snapshot_id", "grant_id", "reserved_micro_usd", "pricing_revision")
-    if reservation is None or any(not hasattr(reservation, f) for f in fields):
+    from .provider_ledger import Reservation
+    if type(reservation) is not Reservation:
         raise SnapshotError("LEDGER_UNAVAILABLE", "NO_RESERVATION")
     attempt_id = reservation.attempt_id
     if type(attempt_id) is not str or not _HEX32.fullmatch(attempt_id):
@@ -196,12 +196,16 @@ def _check_reservation(conn, reservation, view, grant_id):
     if type(reserved) is not int or reserved <= 0:
         raise SnapshotError("LEDGER_UNAVAILABLE", "RESERVATION_AMOUNT")
     try:
-        row = conn.execute("SELECT snapshot_id, grant_id, reserved_micro_usd, state FROM ledger_attempts"
+        row = conn.execute("SELECT snapshot_id, grant_id, reserved_micro_usd, state, provider, model, endpoint,"
+                           " pricing_revision, limits_revision, deadline_ms FROM ledger_attempts"
                            " WHERE attempt_id=?", (attempt_id,)).fetchone()
     except sqlite3.Error:
         # Sổ chưa có bảng, hỏng, hay không đọc được: chặn, không đoán là đã giữ (L15).
         raise SnapshotError("LEDGER_UNAVAILABLE", "LEDGER_UNREADABLE") from None
-    if row is None or row[0] != view.snapshot_id or row[1] != grant_id or row[2] != reserved or row[3] != "reserved":
+    expected = (view.snapshot_id, grant_id, reserved, "reserved", view.target["provider"], view.target["model"],
+                view.revisions["endpoint"], reservation.pricing_revision, reservation.limits_revision,
+                reservation.deadline_ms)
+    if row is None or tuple(row) != expected:
         raise SnapshotError("LEDGER_UNAVAILABLE", "RESERVATION_NOT_RECORDED")
 
 

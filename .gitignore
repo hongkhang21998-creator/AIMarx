@@ -14,3 +14,9 @@ __pycache__/
 *.db
 build/
 dist/
+
+# LEDGER-01: giá và hạn mức chi là cấu hình RIÊNG MÁY, người tự xác minh rồi sửa tay.
+# PSC-01 cấm để giá trong mã nguồn; tệp thật nằm cạnh kho dữ liệu trên Data1000.
+rate_cards.json
+budget_limits.json
+*.rate_cards.json

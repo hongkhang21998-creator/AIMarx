@@ -1,5 +1,13 @@
 # Kế hoạch trợ lý xử lý văn bản: AI agent + SLM + MCP
 
+## Cập nhật 12/09/2026 — kế hoạch train SLM
+
+Theo yêu cầu anh Khang ở PR #45, bổ sung [kế hoạch fine-tune SLM](docs/SLM_TRAINING_PLAN.md): benchmark local → schema/dataset được duyệt → smoke QLoRA trên GPU → pilot → kiểm lại GGUF trên ASUS. Ứng viên đầu là Qwen3 1.7B non-thinking, chỉ chốt sau khi so với 0.6B và Qwen3.5 0.8B trên máy thực tế. Đây là kế hoạch, chưa train hoặc thuê GPU.
+
+Điều chỉnh phụ thuộc của bảng HOS bên dưới: có thể chuẩn bị schema/dataset HOS-02, benchmark chỉ đề xuất HOS-03 và phần offline của HOS-06 trước khi hoàn tất đường cloud HOS-01. Bật thực thi HOS-04/05 vẫn phải qua scheduler, quyền, ledger, adapter và kiểm thử đầu-cuối. PR #44 đã merge ledger tại main `05c8152`; câu “PolicyGate là việc tiếp theo” trong lịch cũ không còn là trạng thái hiện hành.
+
+Việc đầu tiên theo kế hoạch là TRAIN-01: proposal-v2, rubric và 30–50 ca baseline. Model sinh đề xuất; trạng thái, attempts và quyền chạy do backend cấp. Chi tiết chia tập, nguồn dữ liệu, cấu hình train, ngân sách và các ngưỡng nghiệm thu nằm trong tài liệu liên kết. Chưa khởi chạy các gói TRAIN trong PR này.
+
 ## Cập nhật phân công 11/09/2026
 
 Gemini không còn là tác nhân phát triển được giao việc chủ động, theo yêu cầu người dùng sau thử CLI hết quota và AI Studio bị từ chối quyền chạy. Astra giữ kiến trúc, API, kiểm thử và điều phối; Claude giữ mã lõi và nhận gói phụ được chia riêng. Nội dung phân công Gemini ở bản kế hoạch cũ bên dưới hết hiệu lực; không xóa đóng góp đã nghiệm thu. Hướng SLM local điều phối worker GLM/DeepSeek/... vẫn giữ nguyên, không phụ thuộc Gemini làm thợ xây.
@@ -17,6 +25,23 @@ flowchart TD
   E --> F[Kiểm schema, nguồn và phiên bản]
   F --> G[Anh xem, sửa và duyệt]
 ```
+
+### Nguyên tắc bắt buộc — chia nhỏ và thực hiện tuần tự
+
+AIMarx phục vụ khối lượng văn bản cá nhân, vì vậy SLM điều phối theo **hàng đợi tuần tự**, không khởi chạy nhiều agent cùng lúc. SLM phải phân rã yêu cầu thành các bước nhỏ có thứ tự và giao đúng một bước cho đúng một agent tại mỗi thời điểm. Bước sau chỉ được bắt đầu khi bước trước đã lưu kết quả và vượt qua kiểm tra cần thiết.
+
+Mỗi bước tối thiểu có: ID, mục tiêu, agent/worker được chọn, đầu vào tham chiếu theo ID, đầu ra theo schema, điều kiện hoàn thành, trạng thái và số lần thử. Trạng thái được lưu bền vững sau từng bước để có thể dừng, tiếp tục hoặc phục hồi mà không làm lại toàn bộ công việc.
+
+Quy tắc thực thi:
+
+- Tối đa **một agent/worker đang chạy** cho mỗi AIMarx instance; các bước còn lại nằm trong hàng đợi.
+- Một model có thể lần lượt đảm nhiệm nhiều vai trò; vai trò được xác định bằng hợp đồng bước, prompt và quyền công cụ, không cần nạp nhiều model đồng thời.
+- Agent chỉ nhận dữ liệu cần cho bước đang làm. Kết quả được kiểm schema, nguồn, phiên bản, quyền và ngân sách trước khi chuyển bước.
+- Bước thất bại được dừng hoặc thử lại trong giới hạn đã cấu hình; không tự sinh nhánh, đệ quy hoặc mở thêm agent vô hạn.
+- SLM chỉ đề xuất kế hoạch và thứ tự. Chương trình giữ quyền chuyển trạng thái, gọi worker và chặn bước không hợp lệ.
+- Người dùng xem và duyệt sản phẩm cuối; các điểm thiếu dữ liệu phải được đưa thành bước hỏi/bổ sung rõ ràng.
+
+Tiêu chí nghiệm thu bản đầu: một công văn được chia thành chuỗi bước có thể kiểm tra; không có hai worker chạy đồng thời; restart tiếp tục từ bước chưa hoàn thành; retry không tạo bản nháp hay tác vụ trùng; nhật ký thể hiện đầy đủ thứ tự giao–nhận–kiểm tra.
 
 ### Vai trò và giới hạn
 

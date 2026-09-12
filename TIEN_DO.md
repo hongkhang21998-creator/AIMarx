@@ -1,5 +1,41 @@
 # Tiến độ từng ngày
 
+## Phân công hiện hành — 12/09/2026: Astra, Sol, Luna, Gemini
+
+Theo chỉ đạo anh Khang, ngừng giao việc phát triển mới cho Claude/Opus. Đội dự án gồm Astra, Sol, Luna và Gemini; quyết định này thay các phân công cũ và quyết định dừng Gemini ngày 11/09. Giữ nguyên tác giả, commit và biên bản của những đóng góp đã hoàn thành.
+
+| Thành viên | Trách nhiệm hiện hành |
+|---|---|
+| Astra | Kiến trúc, proposal-v2, hợp đồng API/DB, quyền/ngân sách, quyết định model và nghiệm thu tích hợp; review phần khó |
+| Sol | Tiếp quản lõi service/scheduler/checkpoint, adapter, migration và pipeline train/export/resume theo hợp đồng Astra |
+| Luna | Fixture, kiểm metadata/nguồn, rubric hỗ trợ, báo cáo benchmark và kiểm hồi quy trong phạm vi file riêng |
+| Gemini | Module Python thuần và dataset tooling nhỏ theo đặc tả; bắt đầu bằng G-TEST-01 #46, mở rộng sau nghiệm thu |
+| Anh Khang | Duyệt đáp án nghiệp vụ, quyền dùng dữ liệu/tài nguyên, sản phẩm và merge PR |
+
+Đây là đội xây dựng AIMarx, không phải danh sách model phải nạp trong sản phẩm. Runtime vẫn SLM đề xuất → backend kiểm → một worker/lần → lưu và kiểm kết quả → anh duyệt. Không tự thay model/provider, bật cloud hoặc train vì thay đội phát triển. Mỗi gói có một người sở hữu file; tiếp quản từ main đã merge, giữ hợp đồng và test cũ. Các phiếu Claude cũ chỉ dùng tham khảo lịch sử, phần chưa xong phải được Astra chia lại cho Sol. Phân công không đồng nghĩa đã khởi chạy phiên agent.
+
+## Tiến độ đối chiếu GitHub — 12/09/2026
+
+| Gói | Trạng thái xác minh | Việc tiếp theo / người tiếp quản |
+|---|---|---|
+| Phân loại, PG-01 | Đã merge #29, #21 | Astra review tích hợp; Sol triển khai |
+| SNAP-01/02, GRANT-01 | Đã merge #37/#39/#41 | Sol bảo trì theo hợp đồng cũ; không làm lại |
+| LEDGER-01 | Đã merge #44 | Sol nối gateway/adapter sau đặc tả Astra; merge ledger chưa bật cloud |
+| PLAN-EVAL-01/02 | Đã merge #35/#36; 6 ca và scorer offline | Luna bảo trì regression; không gọi là benchmark model |
+| Kế hoạch tuần tự và train | Đã merge #45 | Astra nhận TRAIN-01; schema proposal-v2 còn cần triển khai |
+| G-TEST-01 #46 | Issue mở; code Gemini gửi qua hội thoại đạt 64 ca độc lập | Thiếu nội dung test/handoff; Gemini hoàn thiện, Astra review; chưa merge |
+| TRAIN-01–05 | Chưa có bằng chứng triển khai/train trong main được đối chiếu | Theo phân công trong docs/SLM_TRAINING_PLAN.md |
+| Scheduler, adapter, workflow đầu-cuối | Chưa có bằng chứng luồng hoàn chỉnh | Sol triển khai từng gói; Astra nghiệm thu |
+
+PR #8/#11 và issue #1/#5/#16 còn mở là backlog lịch sử, không tự coi là công việc mới cần chạy lại. Trước tiếp quản phải đối chiếu các PR đã merge; không tự đóng trong lần sửa tài liệu này. Không có lượt test runtime/model mới trong lần cập nhật; không xác minh tiến trình ASUS hiện tại.
+
+Thứ tự thực hiện: Astra chốt TRAIN-01; Gemini hoàn thiện #46 và Luna chuẩn bị ca theo schema; Sol tiếp quản dataset tooling và tích hợp lõi qua gói riêng. Smoke train chỉ sau quyền dữ liệu/tài nguyên, pilot sau smoke đạt; không cam kết ngày hoàn thành từ số lượng agent.
+
+## Lịch sử tiến độ trước cập nhật đội
+
+Các mục từ đây trở xuống là ảnh chụp các phiên cũ; phân công và trạng thái chờ đã được bảng hiện hành phía trên thay thế. Giữ để truy vết, không dùng làm lệnh giao việc mới.
+
+
 ## Định hướng hiện hành — 11/09/2026: ưu tiên lõi xử lý và độ thông minh
 
 **Nhịp mới theo chỉ đạo tiếp theo:** giai đoạn tăng tốc, chuẩn bị nhiều gói và cho phép làm song song khi không chung file/phụ thuộc. Quy tắc cũ một gói cho cả dự án mỗi ngày được thay thế; vẫn kiểm thử, ghi bàn giao, PR riêng và người dùng merge. Các gói lõi phụ thuộc nhau phải đi tuần tự từ main đã merge, không xếp chồng PR.

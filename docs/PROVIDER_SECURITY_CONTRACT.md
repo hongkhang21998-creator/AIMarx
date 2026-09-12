@@ -1,6 +1,11 @@
 # Hợp đồng bảo mật provider — PSC-01
 
-> Cập nhật phân công 11/09/2026: Gemini đã được bỏ khỏi phân công phát triển chủ động; các gói phụ do Astra điều phối lại cho Claude hoặc tự xử lý theo từng buổi. Các đề xuất giao fixture cho Gemini bên dưới là lịch sử. Hợp đồng bảo mật và phạm vi provider không thay đổi.
+## Trạng thái đối chiếu 12/09/2026
+
+PG-01, snapshot, grant và ledger đã merge qua #21/#39/#41/#44. Đây là các module nền; gateway/adapter và scheduler đầu-cuối chưa được xác nhận hoạt động. Các câu “chưa triển khai” ở phần mô tả ban đầu dưới đây là lịch sử thiết kế. Sol tiếp quản phần tích hợp, Astra review hợp đồng; không bật cloud bởi thay phân công. Xem [tiến độ hiện hành](../TIEN_DO.md).
+
+
+> Cập nhật 12/09/2026: Astra giữ thiết kế/review; Sol tiếp quản triển khai lõi từ Claude; Luna và Gemini nhận kiểm thử/tooling tách file theo hợp đồng. Phân công cũ được thay thế, lịch sử tác giả được giữ.
 
 Ngày: 10/09/2026. Trạng thái: **thiết kế đề xuất, chưa triển khai**. Base: `881d1aa9c7280a4c5bf5c0aa6d7ab5bde34f4ad5` (PR #17 đã merge). Astra phụ trách thiết kế và nghiệm thu phần API khó; người dùng duyệt PR. Các giá trị mặc định bên dưới là lựa chọn của dự án, không phải giới hạn do nhà cung cấp công bố.
 
@@ -184,10 +189,10 @@ Sau đó chạy regression Linux và CI Windows; kiểm nguyên ba MCP tool hi�
 ## 10. Gói việc tiếp theo — mỗi buổi một gói
 
 1. **Astra:** triển khai PolicyGate thuần dữ liệu + test chặn cloud, chưa mạng/DB. Đây là đề xuất đầu việc nhỏ tiếp theo sau khi duyệt thiết kế.
-2. Astra thiết kế chi tiết transaction grant/ledger và kiểm các tình huống crash; Claude giữ triển khai migration/service/UI theo hợp đồng được duyệt, không song song sửa cùng file.
+2. Astra thiết kế chi tiết transaction grant/ledger và kiểm các tình huống crash; Sol tiếp quản triển khai migration/service/UI theo hợp đồng được duyệt, không song song sửa cùng file.
 3. Astra triển khai và kiểm adapter từng provider, timeout/retry/giới hạn giá; Gemini chỉ nhận fixture synthetic hoặc hàm nhỏ đã chốt schema và đường dẫn.
 
-Đề xuất model cho phần khó: Astra mức suy luận high cho grant/ledger/API và kiểm thử race/crash; Claude giữ lõi hiện hữu. Không cần giao Gemini toàn bộ gateway. Mỗi gói có nhánh/base/file sở hữu và biên bản test riêng; chỉ người dùng merge. Danh sách này không phải giao chạy cả ba buổi hôm nay.
+Đề xuất model cho phần khó: Astra mức suy luận high cho grant/ledger/API và kiểm thử race/crash; Sol tiếp quản lõi hiện hữu. Không cần giao Gemini toàn bộ gateway. Mỗi gói có nhánh/base/file sở hữu và biên bản test riêng; chỉ người dùng merge. Danh sách này không phải giao chạy cả ba buổi hôm nay.
 
 ## Nguồn đã đối chiếu ngày 10/09/2026
 

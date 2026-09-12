@@ -12,6 +12,14 @@ Theo chỉ đạo anh Nguyen Hong Khang, AIMarx phải chia yêu cầu thành t�
 
 Quyết định này áp dụng cho HOS-01–05: ưu tiên một workflow hoàn chỉnh, đúng nguồn và có người duyệt trên cấu hình 8 GB trước khi xem xét concurrency. “Swarm” trong giai đoạn đầu là nhiều vai trò phối hợp qua hàng đợi tuần tự; không yêu cầu nhiều model cùng nằm trong RAM.
 
+### Kế hoạch train — 12/09/2026, PR #45
+
+- Đã lập [SLM_TRAINING_PLAN.md](docs/SLM_TRAINING_PLAN.md), đối chiếu main `05c8152` sau khi #44 merge. Các trạng thái PR trong ghi chép cũ bên dưới là lịch sử.
+- Hiện có 6 ca planning và 18 ca extraction làm reference/regression; chưa có dataset train được duyệt hoặc model AIMarx đã fine-tune.
+- Đề xuất Qwen3 1.7B QLoRA trên GPU sau baseline; ASUS i3/8 GB dùng chuẩn bị dữ liệu và inference tuần tự. Smoke 120 mẫu, pilot 800–1.200 mẫu đã duyệt, tách test theo họ nguồn.
+- Nghiệm thu bằng chất lượng trước/sau, kiểm quyền backend và RAM/độ trễ thực tế của GGUF; các ngưỡng trong kế hoạch chưa phải kết quả đo.
+- Tiếp theo: TRAIN-01 chốt schema/rubric/baseline. GPU miễn phí hoặc thuê còn chờ lựa chọn; chưa tải model, xuất dữ liệu hay chi tiền. Phân công TRAIN là đề xuất, chưa dispatch agent.
+
 ### Chính sách dữ liệu và trạng thái thực tế
 
 - Đã chốt: tài liệu công khai/giả lập được xét dùng API; nội bộ/hạn chế/chưa phân loại giữ local. Nhãn phải do người dùng xác định; model không được tự nâng quyền. Nguồn trộn và nội dung dẫn xuất không được làm mất hạn chế của nguồn.

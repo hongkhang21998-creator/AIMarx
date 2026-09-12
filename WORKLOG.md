@@ -330,3 +330,13 @@ Kết luận trung thực: prompt đang thiếu mô tả schema là một lỗi 
   Kiểm lại regression và mutation trước push; Data1000 chưa gắn sau reboot.
 - Sau khôi phục: regression **587 passed, 2 skipped** (Data1000 chưa gắn +
   Windows junction); 60,86 giây. Kết quả trước reboot trên NTFS vẫn ghi riêng.
+
+
+## 2026-09-12 — Astra bổ sung kế hoạch train / PR #45
+
+- Theo yêu cầu anh Khang; nhận phạm vi trước khi sửa tại [bình luận PR #45](https://github.com/hongkhang21998-creator/AIMarx/pull/45#issuecomment-5645987894). Tiếp tục nhánh `codex/sequential-slm-swarm`, head nhận việc `0fd52c5`, đã merge main `05c8152` vào checkout riêng.
+- Sở hữu trong gói này: `docs/SLM_TRAINING_PLAN.md`, các mục liên kết/cập nhật trong `KE_HOACH_AI_AGENT.md`, `TIEN_DO.md`, `WORKLOG.md`. Không sửa runtime, scorer hoặc fixtures; giữ bản ghi LEDGER-01 từ main.
+- Kế hoạch gồm proposal-v2, baseline 3 SLM, smoke/pilot dataset theo family, QLoRA trên GPU, export GGUF, test mù và nghiệm thu ASUS; 6 planning + 18 extraction hiện có chỉ làm reference/regression.
+- Đã kiểm số ca từ JSON, đường dẫn tài liệu và diff so với main; thay đổi chỉ Markdown nên không chạy lại test ứng dụng local. Trạng thái CI và SHA sau push ghi tại PR.
+- Chưa train/benchmark mới, chưa thuê GPU, tải model, upload dữ liệu hoặc giao agent chạy. GPU/ngân sách chưa chốt; các thông số là đề xuất để kiểm chứng.
+- Handoff: sau khi anh merge #45, nhận TRAIN-01 trên nhánh riêng từ main mới; ghi phạm vi trước khi sửa schema/scorer. TRAIN-02 chỉ bắt đầu sau hợp đồng được chốt. Rollback tài liệu không thay đổi model/runtime.

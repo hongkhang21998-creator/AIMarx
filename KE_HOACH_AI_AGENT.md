@@ -18,6 +18,23 @@ flowchart TD
   F --> G[Anh xem, sửa và duyệt]
 ```
 
+### Nguyên tắc bắt buộc — chia nhỏ và thực hiện tuần tự
+
+AIMarx phục vụ khối lượng văn bản cá nhân, vì vậy SLM điều phối theo **hàng đợi tuần tự**, không khởi chạy nhiều agent cùng lúc. SLM phải phân rã yêu cầu thành các bước nhỏ có thứ tự và giao đúng một bước cho đúng một agent tại mỗi thời điểm. Bước sau chỉ được bắt đầu khi bước trước đã lưu kết quả và vượt qua kiểm tra cần thiết.
+
+Mỗi bước tối thiểu có: ID, mục tiêu, agent/worker được chọn, đầu vào tham chiếu theo ID, đầu ra theo schema, điều kiện hoàn thành, trạng thái và số lần thử. Trạng thái được lưu bền vững sau từng bước để có thể dừng, tiếp tục hoặc phục hồi mà không làm lại toàn bộ công việc.
+
+Quy tắc thực thi:
+
+- Tối đa **một agent/worker đang chạy** cho mỗi AIMarx instance; các bước còn lại nằm trong hàng đợi.
+- Một model có thể lần lượt đảm nhiệm nhiều vai trò; vai trò được xác định bằng hợp đồng bước, prompt và quyền công cụ, không cần nạp nhiều model đồng thời.
+- Agent chỉ nhận dữ liệu cần cho bước đang làm. Kết quả được kiểm schema, nguồn, phiên bản, quyền và ngân sách trước khi chuyển bước.
+- Bước thất bại được dừng hoặc thử lại trong giới hạn đã cấu hình; không tự sinh nhánh, đệ quy hoặc mở thêm agent vô hạn.
+- SLM chỉ đề xuất kế hoạch và thứ tự. Chương trình giữ quyền chuyển trạng thái, gọi worker và chặn bước không hợp lệ.
+- Người dùng xem và duyệt sản phẩm cuối; các điểm thiếu dữ liệu phải được đưa thành bước hỏi/bổ sung rõ ràng.
+
+Tiêu chí nghiệm thu bản đầu: một công văn được chia thành chuỗi bước có thể kiểm tra; không có hai worker chạy đồng thời; restart tiếp tục từ bước chưa hoàn thành; retry không tạo bản nháp hay tác vụ trùng; nhật ký thể hiện đầy đủ thứ tự giao–nhận–kiểm tra.
+
 ### Vai trò và giới hạn
 
 - SLM là bộ điều phối có phạm vi hẹp: phân loại trích xuất/soạn thảo/kiểm tra và đề xuất một workflow, worker/model trong danh sách đã cấu hình. Đề xuất chỉ gồm ID và tham chiếu nguồn, không có lệnh shell, URL, API key hay quyền tự cấp.

@@ -1,7 +1,31 @@
 # Kế hoạch fine-tune SLM cho AIMarx
 
+## Phân công hiện hành — 12/09/2026: Astra, Sol, Luna, Gemini
+
+Theo chỉ đạo anh Khang, ngừng giao việc phát triển mới cho Claude/Opus. Đội dự án gồm Astra, Sol, Luna và Gemini; quyết định này thay các phân công cũ và quyết định dừng Gemini ngày 11/09. Giữ nguyên tác giả, commit và biên bản của những đóng góp đã hoàn thành.
+
+| Thành viên | Trách nhiệm hiện hành |
+|---|---|
+| Astra | Kiến trúc, proposal-v2, hợp đồng API/DB, quyền/ngân sách, quyết định model và nghiệm thu tích hợp; review phần khó |
+| Sol | Tiếp quản lõi service/scheduler/checkpoint, adapter, migration và pipeline train/export/resume theo hợp đồng Astra |
+| Luna | Fixture, kiểm metadata/nguồn, rubric hỗ trợ, báo cáo benchmark và kiểm hồi quy trong phạm vi file riêng |
+| Gemini | Module Python thuần và dataset tooling nhỏ theo đặc tả; bắt đầu bằng G-TEST-01 #46, mở rộng sau nghiệm thu |
+| Anh Khang | Duyệt đáp án nghiệp vụ, quyền dùng dữ liệu/tài nguyên, sản phẩm và merge PR |
+
+Đây là đội xây dựng AIMarx, không phải danh sách model phải nạp trong sản phẩm. Runtime vẫn SLM đề xuất → backend kiểm → một worker/lần → lưu và kiểm kết quả → anh duyệt. Không tự thay model/provider, bật cloud hoặc train vì thay đội phát triển. Mỗi gói có một người sở hữu file; tiếp quản từ main đã merge, giữ hợp đồng và test cũ. Các phiếu Claude cũ chỉ dùng tham khảo lịch sử, phần chưa xong phải được Astra chia lại cho Sol. Phân công không đồng nghĩa đã khởi chạy phiên agent.
+
+## Kiến trúc train và vận hành sau cập nhật đội
+
+- Luồng offline: schema/rubric (Astra) → dữ liệu synthetic đề xuất (Sol/Luna/Gemini theo file riêng) → anh duyệt gold/quyền → chia family và kiểm trùng → baseline → smoke QLoRA/export/resume → pilot → test độc lập → GGUF candidate trên ASUS.
+- Sol chịu trách nhiệm pipeline; Luna kiểm manifest và tính đầy đủ; Gemini #46 chỉ kiểm trùng metadata/hash, không thay near-duplicate hoặc duyệt nghiệp vụ. 64 ca kiểm độc lập trên module người dùng gửi đã đạt trong phiên review, nhưng thiếu nội dung test và handoff nên #46 chưa nghiệm thu/merge.
+- Tập test do Astra giữ riêng; dùng validation để chọn candidate, không dùng test để chỉnh prompt hoặc train. Mọi mẫu chưa duyệt ở quarantine.
+- ASUS 8 GB là đích inference tuần tự, không là cam kết đủ RAM cho train. GPU và quyền xuất dữ liệu/chi phí phải được chốt trước job; giữ recipe, model ứng viên và ngưỡng hiện có như đề xuất cần đo.
+- Runtime: SLM chia bước → backend kiểm schema/nguồn/quyền → hàng đợi một worker → lưu kết quả/kiểm nguồn → bước tiếp theo hoặc hỏi anh → duyệt. State/attempts/checkpoint do backend cấp; train không triển khai thay scheduler.
+- Nhiều vai trò có thể dùng chung model; kiểm số model resident, RAM đỉnh và swap bằng benchmark. Không bảo đảm vừa 8 GB chỉ từ việc chạy tuần tự.
+
+
 Ngày 12/09/2026 · Astra · mở rộng PR #45 về điều phối tuần tự.
-Trạng thái: **kế hoạch để review, chưa train, chưa tải model hoặc phát sinh chi phí**.
+Trạng thái: **kế hoạch đã vào main qua PR #45; phân công cập nhật 12/09/2026; chưa có bằng chứng train hoặc benchmark mới**.
 Mốc main đã đối chiếu: `05c8152` (LEDGER-01, PR #44 đã merge).
 
 ## 1. Mục tiêu và giới hạn của lần train đầu
@@ -115,7 +139,7 @@ nhãn synthetic thật, dù nội dung mô phỏng văn bản hạn chế.
   chia tập. Near-duplicate check và rà soát chéo nguồn giữa các split.
 - Tách tập trước khi tăng cường dữ liệu; chỉ sinh biến thể trong train. Không lấy
   6 ca cũ rồi đổi tên/ngày để tạo cả train và test.
-- Astra/Claude có thể dự thảo gold synthetic; người dùng/người được giao nghiệp vụ
+- Sol/Luna/Gemini có thể dự thảo gold synthetic theo rubric Astra; người dùng/người được giao nghiệp vụ
   phải duyệt nhãn trước khi đưa vào pilot. Chưa duyệt → quarantine, không train.
 - Không dùng output chưa duyệt, toàn bộ audit log hoặc việc bị từ chối làm positive
   target. Cặp sai→sửa dùng phân tích lỗi hoặc chuyển thành input→gold đúng; DPO/RL
@@ -260,15 +284,12 @@ triển khai HOS-04 chỉ vì model được fine-tune. Những phụ thuộc d�
 | Gói | Phụ trách đề xuất | Sản phẩm / điểm dừng |
 |---|---|---|
 | TRAIN-01 | Astra | Chốt proposal-v2, rubric, split/rights manifest, baseline protocol; schema/scorer mới có test; chưa train |
-| TRAIN-02 | Claude/Opus + anh duyệt nghiệp vụ | Dataset tooling và 120 mẫu smoke được duyệt, kiểm near-duplicate/mask; không sửa ledger |
-| TRAIN-03 | Astra | Benchmark 0.6B/1.7B/3.5-0.8B, chốt model, GPU và ngân sách; smoke train/export/resume sau quyền tài nguyên/dữ liệu |
-| TRAIN-04 | Claude/Opus + anh duyệt | Pilot 800–1.200 gold và recipe tái lập; chỉ dùng train/validation để chọn candidate |
-| TRAIN-05 | Astra, anh chấm nghiệm thu | Test mù, so base/GGUF trên ASUS, báo go/no-go; chỉ tạo candidate/shadow |
+| TRAIN-02 | Sol chủ trì; Luna kiểm fixture; Gemini tooling tách file; anh duyệt nghiệp vụ | Dataset tooling và 120 mẫu smoke được duyệt, kiểm near-duplicate/mask; không sửa ledger |
+| TRAIN-03 | Astra chốt model/protocol; Sol chạy smoke; Luna tổng hợp số đo | Benchmark 0.6B/1.7B/3.5-0.8B, chốt model, GPU và ngân sách; smoke train/export/resume sau quyền tài nguyên/dữ liệu |
+| TRAIN-04 | Sol chạy pipeline; Luna kiểm manifest; anh duyệt gold; Astra review | Pilot 800–1.200 gold và recipe tái lập; chỉ dùng train/validation để chọn candidate |
+| TRAIN-05 | Astra giữ test độc lập; Luna tổng hợp; anh chấm nghiệp vụ | Test mù, so base/GGUF trên ASUS, báo go/no-go; chỉ tạo candidate/shadow |
 
-Astra phù hợp phần ML/schema/evaluation và quyết định model; Claude/Opus phù hợp
-pipeline/train tooling sau hợp đồng. Đây là đề xuất phân công, **chưa khởi chạy agent
-hay giao nhiều tác vụ đồng thời**. Mỗi gói ghi base SHA, file sở hữu và bàn giao,
-PR riêng từ main đã merge; anh merge. Các file ledger thuộc gói khác, tránh chồng.
+Astra chốt ML/schema/evaluation; Sol tiếp quản pipeline/train tooling; Luna kiểm dữ liệu và báo cáo; Gemini nhận module nhỏ sau review #46. Không giao cùng file, không giao tập test mù cho người/model sinh train. Mỗi gói có base SHA, phạm vi sở hữu và báo cáo test; PR từ main đã merge, anh merge. Chưa khởi chạy TRAIN trong lần cập nhật này.
 
 Ước lượng lập kế hoạch: 1–2 buổi chốt schema; 2–4 buổi cho smoke dataset/tooling;
 1–2 buổi baseline và smoke train/export nếu đã có GPU. Đó là mốc thử pipeline,

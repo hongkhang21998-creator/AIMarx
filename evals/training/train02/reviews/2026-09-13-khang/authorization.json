@@ -1,0 +1,37 @@
+{
+  "format": "train02-human-approval-v1",
+  "reviewer": "Nguyen Hong Khang",
+  "base_sha": "380ebb41b2d79b00aeddb23e3e17639db61b99f4",
+  "reviewed_implementation_sha": "6d8dbc3efa4a63205082422abd07be3723b4f003",
+  "authorization_source": "User statements in Codex task 01a09881-af5a-7bc1-a569-7e3093bec69f",
+  "quality_statement": "đã merge và tôi duyệt 120 mẫu thống nhất, triển khai",
+  "rights_statement": "có cấp quyền với điều kiện khong phát sinh thêm chi phí",
+  "takeover_statement": "Có, tiếp quản và hoàn thiện #46",
+  "scope": {
+    "local_export": true,
+    "training_data_use": true,
+    "cloud_upload": false,
+    "paid_resources": false,
+    "training_job_started": false,
+    "additional_spend": 0
+  },
+  "original_dataset_sha256": "adbf6b714868e2cc53be933fe0d34408bfaabab0bd27c108648612a046ce222b",
+  "reviewed_dataset_sha256": "8c5cf972584247173e343d0055807ace248d7c76299fb796021cb6f9f3d8d276",
+  "count": 120,
+  "receipts_per_case": 2,
+  "content_hashes_unchanged": true,
+  "exports": [
+    {
+      "file": "train.jsonl",
+      "records": 80,
+      "sha256": "1062862c5db0c466de2b2ac20c3f217edabfcaa84ea34304c28c46a9758e4a2b",
+      "bytes": 535771
+    },
+    {
+      "file": "validation.jsonl",
+      "records": 20,
+      "sha256": "8d3c43d3d69df8c7c58cba9733e76b1619d77629a144fae946468c8c56ad1741",
+      "bytes": 132313
+    }
+  ]
+}

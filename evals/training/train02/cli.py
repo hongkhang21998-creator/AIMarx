@@ -6,7 +6,7 @@ from pathlib import Path
 
 from evals.planning_v2.cli import load_cases as baseline_cases
 from .core import (ROOT, ERROR, Blocked, SPLIT_COUNTS, export_rows, inference_input,
-                   load_dataset, manifest_for, near_duplicates, read_json, review_case,
+                   load_dataset, manifest_for, near_duplicates, effective_review, read_json, review_case,
                    review_queue, split_audit)
 
 
@@ -52,13 +52,19 @@ def main():
         if args.command == 'check':
             audit = split_audit(cases)
             near = near_duplicates(cases, baseline_cases())
+            ready = {}
+            for split in ('train', 'validation'):
+                chosen = [c for c in cases if c['split'] == split]
+                ready[split] = (bool(chosen) and audit['status'] == 'ok'
+                                and not any(f['cross_split'] for f in near)
+                                and all(effective_review(c) == ('approved', True, True) for c in chosen))
             summary = {'count': len(cases), 'split_counts': manifest_for(cases)['split_counts'],
                        'full_smoke_counts': manifest_for(cases)['split_counts'] == SPLIT_COUNTS,
                        'pending_human': sum(c['review_status'] == 'pending_human' for c in cases),
                        'approved': sum(c['review_status'] == 'approved' for c in cases),
                        'structural_checks': 'ok', 'split_audit': audit, 'near_duplicates': near,
-                       'export_ready': False,
-                       'notice': 'Structural check only. Export rechecks rights, split dependency and near duplicates.'}
+                       'export_ready': all(ready.values()), 'export_ready_by_split': ready,
+                       'notice': 'Local export readiness only. No cloud permission, training job or model quality claim; export rechecks all gates.'}
             print(json.dumps(summary, ensure_ascii=False, indent=2))
             if audit['status'] == 'findings' or any(f['cross_split'] for f in near):
                 return 2

@@ -1,6 +1,11 @@
 # TRAIN-02 — dữ liệu smoke và công cụ duyệt local
 
-**120 dự thảo synthetic; 0 mẫu đã được người duyệt. Chưa train hoặc benchmark SLM.**
+**Bộ draft gốc được giữ nguyên để truy vết. Bản đã duyệt 120/120 nằm tại
+[reviews/2026-09-13-khang](reviews/2026-09-13-khang/README.md).** Anh Khang đã cấp
+quyền train/export local với điều kiện không phát sinh thêm chi phí. #46 được hoàn
+thiện và kiểm cùng PR tiếp nối, module/pin được merge đồng thời; chưa train hoặc
+benchmark SLM. Lệnh không có `--data` vẫn đọc draft gốc (pending), không tự dùng quyền
+của snapshot đã duyệt.
 80 train / 20 validation / 20 smoke-test theo **30 họ nguồn và 30 họ mẫu**, mỗi họ
 bốn tình huống. Tên split chỉ là dự kiến sử dụng, không cấp quyền train/export.
 Tất cả đã công khai trong repo nên smoke-test **không phải test mù**. Pilot cần test
@@ -35,8 +40,9 @@ python -m pytest -q tests/test_train02_data_review.py
 
 `check` exit 0 chỉ xác nhận cấu trúc/hash và không có finding cross-split từ phương
 pháp gần trùng. Báo riêng `split_audit.status`; dependency thiếu không được giả là
-kiểm split đã đạt. `export_ready=false` trong check: công cụ này không cấp quyền xuất;
-phải gọi export để kiểm lại đúng tập được chọn. Sai cấu trúc/hash hoặc finding rò
+kiểm split đã đạt. `export_ready` và `export_ready_by_split` báo khả năng xuất train/validation local theo
+quyền hiện có, split audit và gần trùng; không cấp quyền mới hoặc quyền cloud.
+Export luôn kiểm lại đúng tập được chọn. Sai cấu trúc/hash hoặc finding rò
 được phát hiện trả exit 2. Nội dung mẫu không được echo vào thông báo lỗi CLI.
 
 `inputs` là artifact **chuẩn bị inference local**, được phép với draft; chỉ có
@@ -124,14 +130,16 @@ Thay prompt/schema cũng làm nội dung đã duyệt không còn khớp contrac
 
 Không sao chép `evals/training/split_audit.py`. Adapter chỉ truyền đúng năm trường
 metadata của hợp đồng #46, ánh xạ `smoke-test → test`, giữ nguyên kết quả finding.
-Module **chưa có trên base**, nên check báo `blocked_dependency_46`, export bị chặn.
-Nếu xuất hiện module nhưng chưa pin bản nghiệm thu, báo `blocked_unreviewed_dependency_46`.
+Module #46 hiện được triển khai theo 3 file đã giao và nghiệm thu kỹ thuật bằng test
+hợp đồng, oracle đối chiếu từng cặp trên 300 lô và 7 mutation. Anh Khang đã cho phép
+chuyển phạm vi từ Gemini sang tác vụ này. Pin source SHA-256 đã kiểm nằm trong core;
+chuẩn hóa CRLF thành LF trước hash để checkout Windows không bị từ chối nhầm.
+Module thiếu hoặc hash khác vẫn chặn; không có cờ CLI bỏ qua gate. Đây là pin nội dung
+module local, không phải chứng thực chống quản trị viên sửa code/pin.
 
-Sau #46 được merge **và nghiệm thu**, một PR tích hợp riêng kiểm hash file module,
-đặt `SPLIT_AUDIT_APPROVED_SHA256` trong core và chạy lại integration tests thật.
-Không có cờ CLI bỏ qua gate. Tests TRAIN-02 dùng test double rõ ràng để kiểm đường
-pass/fail/metadata; **không coi đó là đã test thuật toán #46**. Test phân bố static
-của 120 draft kiểm số họ và phân tách tập, không thay công cụ audit dữ liệu tùy ý.
+Tests tích hợp hiện gọi module thật, chặn family/template chồng tập và chạy CLI xuất
+80/20 từ snapshot được duyệt. Tests dùng double cũ được giữ để kiểm thiếu/sai dependency.
+Kiểm nguồn gần trùng vẫn độc lập với kiểm metadata/exact hash của #46.
 
 ## Gần trùng và giới hạn
 
@@ -152,8 +160,8 @@ không giả rằng mỗi câu khác chữ là một template độc lập.
 ## Export và điểm dừng
 
 ```bash
-python -m evals.training.train02.cli export --data /tmp/train02-reviewed --split train --output /tmp/train02-train.jsonl
-python -m evals.training.train02.cli export --data /tmp/train02-reviewed --split validation --output /tmp/train02-validation.jsonl
+python -m evals.training.train02.cli export --data evals/training/train02/reviews/2026-09-13-khang --split train --output /tmp/train02-train.jsonl
+python -m evals.training.train02.cli export --data evals/training/train02/reviews/2026-09-13-khang --split validation --output /tmp/train02-validation.jsonl
 ```
 
 Lệnh chặn nếu bất kỳ mẫu được chọn chưa approved đúng hash hoặc thiếu quyền; không

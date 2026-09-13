@@ -26,3 +26,19 @@ mount Drive.
 Tại thời điểm tạo PR, code và test local có thể được nghiệm thu nhưng GPU smoke
 chỉ được gọi là thành công khi notebook thực tế sinh `checkpoint-5` và manifest
 `global_step=5`. Kết quả năm bước không chứng minh chất lượng nghiệp vụ tăng.
+
+## Kết quả chạy Colab thực tế
+
+Ngày 13/09/2026, phiên Colab free cấp Tesla T4. PyTorch báo 14,563 GiB VRAM;
+job dùng FP16. Lượt token audit đầu tiên dừng đúng cổng vì một mẫu cần 2.381
+token với context 2.048. Sau khi tăng riêng cấu hình Colab lên 4.096, audit 100
+mẫu đạt minimum 1.496, maximum 2.448, mean 1.878,56 và `over_limit=0`.
+
+Process đầu chạy một optimizer step trong 11,69 giây và tạo `checkpoint-1`.
+Process mới nạp checkpoint đó, phục hồi state và chạy tới `checkpoint-5` trong
+37,72 giây; loss smoke cuối là 0,578054. Manifest giữ SHA train
+`1062862c5db0c466de2b2ac20c3f217edabfcaa84ea34304c28c46a9758e4a2b`, validation
+`8d3c43d3d69df8c7c58cba9733e76b1619d77629a144fae946468c8c56ad1741` và hash
+từng file checkpoint. ZIP `AIMarx-Qwen3-0.6B-LoRA-smoke-step5.zip` đã được tải
+xuống từ Colab. Đây là bằng chứng pipeline chạy được, chưa phải đánh giá chất
+lượng nghiệp vụ hoặc bản triển khai production.

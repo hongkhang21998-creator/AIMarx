@@ -2,6 +2,8 @@
 
 ## Cập nhật 13/09/2026 — chỉ train SLM 0.6B
 
+Theo yêu cầu tiếp theo “train thật chậm nhưng an toàn”, ưu tiên chế độ Windows có giới hạn threads, kiểm RAM, checkpoint và thử resume trước khi tăng steps; xem mục 6 kế hoạch train. Đây là đặc tả chưa triển khai, không phải trainer đang chạy. Chạy chậm không thay thế đủ RAM hoặc quyền dữ liệu.
+
 Theo quyết định mới của anh Khang ngày 13/09, [kế hoạch fine-tune SLM](docs/SLM_TRAINING_PLAN.md) chỉ dùng Qwen3 0.6B non-thinking: baseline 0.6B → dataset được duyệt → kiểm backend/tài nguyên → smoke LoRA/QLoRA và export/resume → pilot → kiểm GGUF trên Windows/ASUS. Windows là máy train mong muốn, nhưng GT 710 1 GB và RAM 8 GB chưa được xác nhận chạy được training. Không tự nâng model hoặc thuê GPU. Các ứng viên lớn hơn trong lịch sử bên dưới không áp dụng cho vòng train này.
 
 Điều chỉnh phụ thuộc của bảng HOS bên dưới: có thể chuẩn bị schema/dataset HOS-02, benchmark chỉ đề xuất HOS-03 và phần offline của HOS-06 trước khi hoàn tất đường cloud HOS-01. Bật thực thi HOS-04/05 vẫn phải qua scheduler, quyền, ledger, adapter và kiểm thử đầu-cuối. PR #44 đã merge ledger tại main `05c8152`; câu “PolicyGate là việc tiếp theo” trong lịch cũ không còn là trạng thái hiện hành.

@@ -14,6 +14,8 @@ Quyết định này áp dụng cho HOS-01–05: ưu tiên một workflow hoàn 
 
 ### Kế hoạch train — cập nhật 13/09/2026: chỉ Qwen3 0.6B
 
+- Yêu cầu tiếp theo: train chậm, ưu tiên ổn định. Đặc tả Windows mới ở mục 6 kế hoạch train: khảo sát CPU LoRA, 2 compute threads, microbatch 1, thử 1 step → resume/5 steps → smoke; checkpoint và watchdog là yêu cầu phải triển khai, chưa có hiệu lực. RAM khả dụng đo ~2,1 GiB chưa qua cổng thử 4 GiB; dữ liệu vẫn chưa duyệt, #46 còn chặn. Chưa train.
+
 - Đã lập [SLM_TRAINING_PLAN.md](docs/SLM_TRAINING_PLAN.md), đối chiếu main `05c8152` sau khi #44 merge. Các trạng thái PR trong ghi chép cũ bên dưới là lịch sử.
 - Tại main `380ebb4` (#50), TRAIN-01 có 36 reference proposal-v2; TRAIN-02 có 120 draft, 0 approved, split audit blocked_dependency_46, export_ready=false. Giữ 6 ca planning và 18 extraction cũ làm regression; chưa có model fine-tuned.
 - Theo anh Khang: chỉ Qwen3 0.6B non-thinking; so base với fine-tuned cùng model. Thử LoRA rank 8, context 1.024 token sau token audit, tăng 2.048 chỉ khi bộ nhớ cho phép. Giữ smoke 120 mẫu và pilot 800–1.200 mẫu được duyệt, tách test theo họ nguồn.

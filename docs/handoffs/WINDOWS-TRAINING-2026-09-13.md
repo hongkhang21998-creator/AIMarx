@@ -74,6 +74,13 @@ hiệu năng cho các công việc đó.
 
 ## Bước tiếp theo và phối hợp
 
+Yêu cầu tiếp theo: train thật chậm nhưng an toàn. Mục 6 kế hoạch train đã bổ sung
+đặc tả CPU LoRA, giới hạn threads, RAM gate, watchdog, checkpoint và phép thử
+1 step → resume/5 steps → smoke ngắn. **Chưa có trainer hoặc guard được triển khai.**
+Kiểm mới: RAM khả dụng ~2,1 GiB (không đạt ngưỡng thử 4 GiB), D trống 73,4 GiB;
+venv chưa có thư viện train, dữ liệu vẫn 120 pending và blocked_dependency_46.
+Không cài/tải/train trong phiên này; cần giải quyết các cổng trước khi chạy thật.
+
 1. Chuẩn bị baseline/token audit đúng 0.6B; khảo sát backend phù hợp trên Windows.
    Nếu GPU không phù hợp, báo lựa chọn thử CPU LoRA hoặc thay tài nguyên cùng các
    giới hạn đã đo. Chưa có quyết định mua/thuê hoặc trần chi phí.

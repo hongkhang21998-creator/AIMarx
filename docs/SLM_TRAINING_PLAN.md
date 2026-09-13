@@ -140,6 +140,61 @@ hoặc checkpoint chứa dữ liệu đó, không tự publish model lên Hub/Ol
 
 ## 6. Recipe pilot có thể tái lập
 
+### Chế độ Windows chậm, có điểm dừng — yêu cầu 13/09/2026
+
+Ưu tiên mới: giảm tải máy, lưu được tiến độ và kiểm trước khi tăng khối lượng.
+Các giá trị dưới đây là **đặc tả cần triển khai và đo**, chưa có trainer/giám sát
+tài nguyên hoạt động. Chạy chậm không tự làm giảm lượng RAM cần để nạp model,
+không sửa được GPU không tương thích và không bảo đảm chất lượng model.
+
+- Khảo sát **CPU LoRA** trong môi trường training riêng, giữ base 0.6B đóng băng;
+  không mặc định ép GT 710 chạy CUDA. FP32 là cấu hình tương thích để khảo sát CPU,
+  chưa chọn BF16/FP16 trên CPU khi chưa kiểm hỗ trợ và tính ổn định.
+- Bắt đầu 2 CPU compute threads, 1 interop thread, DataLoader workers=0,
+  ưu tiên tiến trình BelowNormal, microbatch=1, gradient checkpointing và
+  use_cache=false. Giới hạn threads/priority không phải giới hạn cứng CPU%/nhiệt độ.
+  Giữ rank=8/alpha=16, context=1.024 sau token audit; không giảm context bằng cắt gold.
+- Learning rate 5e-5 cho lượt thử bảo thủ; warmup 10%, max_grad_norm=1.0.
+  Learning rate thấp không thay thế giới hạn tài nguyên hoặc chứng minh học tốt hơn.
+  Accumulation=16 chỉ gom gradient, không coi là giảm RAM so với microbatch=1.
+- Trước nạp: RAM khả dụng ít nhất 4 GiB và đĩa trống ít nhất 15 GiB là cổng
+  vận hành tạm thời, **không cam kết đủ**. Đo đỉnh RAM riêng ở nạp, forward/backward
+  và lưu checkpoint. Chặn bắt đầu nếu không đạt; không tự đóng ứng dụng của anh.
+- Khi chạy: kiểm RAM ít nhất mỗi giây và giữa microsteps; dừng trước bước kế
+  tiếp khi RAM khả dụng <1,5 GiB, đĩa trống <10 GiB, loss/gradient không hữu hạn,
+  hoặc lỗi lưu checkpoint. Watchdog ở ngoài trainer cần bảo vệ cả giai đoạn nạp.
+  Đây là giám sát best-effort, không chặn tuyệt đối được mọi đỉnh RAM trong kernel.
+- Thử 1 optimizer step và checkpoint trước; mở tiến trình mới để kiểm resume,
+  rồi mới 5 steps. Sau hai cổng này mới smoke 20–50 steps; mỗi phiên thử tối đa
+  30 phút, dừng tại ranh giới bước. Watchdog có thể buộc dừng nếu bước bị treo;
+  lúc đó chỉ hứa khôi phục checkpoint hợp lệ gần nhất, mất phần đang tính là có thể.
+- Lưu mỗi optimizer step ở thử 1/5 steps, mỗi 5 steps ở smoke; checkpoint phải
+  có adapter, optimizer/scheduler, RNG, bước/data cursor, config và hash dataset/base.
+  Ghi vào thư mục tạm cùng volume, xác minh xong mới đổi tên/đánh dấu hoàn chỉnh.
+  Giữ 2 checkpoint hoàn chỉnh gần nhất, chỉ dọn checkpoint cũ của đúng run sau
+  khi bản mới được kiểm; không ghi đè model gốc hoặc artifact người dùng.
+- Chỉ lưu ở ranh giới optimizer step khi gradient accumulation đã hoàn tất;
+  Ctrl+C dừng có kiểm soát, mất điện/process kill có thể mất phần sau checkpoint.
+  Không tự bật chạy qua đêm, tự khởi động lại hoặc chuyển backend khi thất bại.
+- Chưa đo được nhiệt CPU bằng cảm biến đáng tin cậy trong phiên này; không báo
+  “đã giám sát nhiệt” hoặc “an toàn tuyệt đối”. Nếu máy giật/treo/thermal throttling,
+  dừng để kiểm tra. Thử CPU không thay đổi BIOS, driver, pagefile hoặc power plan.
+
+Kiểm trực tiếp ngày 13/09/2026: RAM khả dụng khoảng **2,1 GiB**, đĩa D còn
+73,4 GiB; venv ứng dụng Python 3.14.6 chưa có torch/transformers/peft. Cổng RAM
+tạm thời chưa đạt. Riêng 0,6 tỷ trọng số FP32 khoảng 2,4 GB (2,24 GiB), chưa
+tính activation/runtime/các bản sao lúc nạp; không hứa train vừa máy 8 GB.
+TRAIN-02 kiểm lại vẫn 120 pending_human, 0 approved, blocked_dependency_46.
+Vì vậy **chưa khởi chạy train**, chưa cài stack hoặc tải model trong lần này.
+
+Thứ tự: hoàn tất quyền/kiểm dữ liệu → chuẩn bị môi trường riêng và kiểm RAM →
+nạp + 1 step/checkpoint → resume + 5 steps → smoke ngắn → đánh giá rồi mới pilot.
+Các cổng của mục này ưu tiên hơn recipe GPU chung bên dưới khi thử trên Windows.
+
+Nguồn kỹ thuật: [PEFT LoRA](https://huggingface.co/docs/peft/package_reference/lora)
+và [Transformers Trainer](https://huggingface.co/docs/transformers/main_classes/trainer).
+Ngưỡng RAM/thời gian là lựa chọn bảo thủ của dự án để thử, không phải bảo đảm của thư viện.
+
 Ưu tiên SFT với PEFT QLoRA; Unsloth là lựa chọn thực thi sau smoke, không thay đổi
 hợp đồng dữ liệu và bộ chấm. [PEFT quantization](https://huggingface.co/docs/peft/developer_guides/quantization)
 mô tả huấn luyện adapter trên nền lượng tử hóa; không dùng trực tiếp file GGUF

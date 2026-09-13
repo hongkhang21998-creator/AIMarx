@@ -1,5 +1,12 @@
 # Nhật ký phối hợp
 
+## 2026-09-13 — chế độ train chậm, có điểm dừng (PR #51)
+
+- Theo yêu cầu tiếp theo của anh Khang, bổ sung đặc tả CPU LoRA Windows: 2 compute threads, priority thấp, RAM gate/watchdog, thử 1 step rồi resume/5 steps trước smoke, checkpoint hoàn chỉnh theo ranh giới optimizer step. Không cam kết an toàn tuyệt đối hoặc khả năng chạy GPU.
+- Kiểm trực tiếp: RAM khả dụng ~2,1 GiB, D trống 73,4 GiB; venv chưa có torch/transformers/peft. TRAIN-02 CLI check: 120 pending, 0 approved, blocked_dependency_46/export_ready=false. Thiếu RAM theo ngưỡng thử và cổng dữ liệu nên chưa train/cài/tải.
+- Phạm vi 5 tài liệu của PR #51; kế hoạch phân biệt đặc tả với tính năng đã triển khai. Đối chiếu PEFT/Trainer chính thức, đọc diff và kiểm whitespace; không chạy lại test code cho thay đổi Markdown.
+- Đặc tả có checkpoint atomic, giữ 2 bản hợp lệ, dừng trước microstep và watchdog best-effort; không hứa giữ được bước đang chạy khi mất điện. Chưa kiểm cảm biến nhiệt hoặc benchmark CPU. Người dùng merge.
+
 ## 2026-09-13 — codex/windows-training-readiness-20260913 — hạ kế hoạch xuống 0.6B
 
 - Theo anh Khang: đổi model train vòng đầu sang duy nhất Qwen/Qwen3-0.6B non-thinking; giữ Windows là máy đích mong muốn. Không tự nâng model nếu baseline không đạt.

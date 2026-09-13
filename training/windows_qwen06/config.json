@@ -1,0 +1,22 @@
+{
+  "model_id": "Qwen/Qwen3-0.6B",
+  "enable_thinking": false,
+  "seed": 530013,
+  "max_length": 1024,
+  "lora_r": 8,
+  "lora_alpha": 16,
+  "lora_dropout": 0.05,
+  "learning_rate": 0.00005,
+  "micro_batch_size": 1,
+  "gradient_accumulation_steps": 16,
+  "compute_threads": 2,
+  "interop_threads": 1,
+  "dataloader_workers": 0,
+  "minimum_free_ram_gib": 4.0,
+  "stop_free_ram_gib": 1.5,
+  "minimum_free_disk_gib": 15.0,
+  "stop_free_disk_gib": 10.0,
+  "maximum_session_minutes": 30,
+  "checkpoint_interval_steps": 1,
+  "keep_complete_checkpoints": 2
+}

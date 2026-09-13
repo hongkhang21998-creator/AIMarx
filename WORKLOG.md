@@ -1,5 +1,12 @@
 # Nhật ký phối hợp
 
+## 2026-09-13 — TRAIN-03 issue #53 — preflight Windows Qwen3 0.6B
+
+- Base `ed253877`; claim/file sở hữu ghi trên issue trước code. Thêm package training riêng, 7 test và handoff; không sửa runtime/UI/ledger/dataset.
+- Pin Qwen3-0.6B revision `c1899de`; export reviewed 80/20 đúng checksum. Preflight đo 2,914 GiB RAM trống và thiếu toàn bộ stack train nên chặn đúng thiết kế; 1→5 step NOT_RUN. Test tập trung 154 passed; full Windows 811 passed, 5 skipped, 1 warning cũ.
+- Chưa cài/download/train/cloud/chi phí/Data1000. Không tạo dependency lock khi backend chưa được kiểm. PR do anh Khang merge.
+
+
 ## 2026-09-13 — chế độ train chậm, có điểm dừng (PR #51)
 
 - Theo yêu cầu tiếp theo của anh Khang, bổ sung đặc tả CPU LoRA Windows: 2 compute threads, priority thấp, RAM gate/watchdog, thử 1 step rồi resume/5 steps trước smoke, checkpoint hoàn chỉnh theo ranh giới optimizer step. Không cam kết an toàn tuyệt đối hoặc khả năng chạy GPU.

@@ -53,6 +53,10 @@ chỉ giả lập backend; chưa kiểm chứng transport/provider production.
 Hai skip: Data1000 chưa bật opt-in trong lượt này; junction chỉ chạy trên Windows.
 Không coi lượt này là kiểm NTFS. Có một cảnh báo deprecation AnyIO/Starlette có sẵn.
 CI Ubuntu/Windows theo SHA được cập nhật tại Checks và bình luận bàn giao PR.
+Lượt Windows đầu ở `91d5e99` lỗi setup/teardown một test: pytest dùng chuỗi 65 KiB
+làm parameter ID, khiến PYTEST_CURRENT_TEST vượt giới hạn 32.767 ký tự của Windows.
+Đã đặt ID ngắn cho 11 ca JSON lỗi, giữ nguyên payload/assertion; không nới validator.
+Chạy lại bộ tập trung và CI trên commit sửa tên ca test trước khi bàn giao.
 
 Lệnh tái hiện:
 

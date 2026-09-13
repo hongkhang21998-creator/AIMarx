@@ -112,7 +112,9 @@ def test_ask_stops_before_speculative_work_and_terminal_has_no_steps(case):
 
 @pytest.mark.parametrize('raw', ['```json\n{}\n```', '{} trailing', '{"x":1,"x":2}',
     '{"x":{"y":1,"y":2}}', '{"x":NaN}', '{"x":Infinity}', '', '['*1100,
-    ' '*65537, None, '\ud800'])
+    ' '*65537, None, '\ud800'], ids=[
+        'fence', 'trailing-text', 'duplicate-key', 'nested-duplicate', 'nan', 'infinity',
+        'empty', 'too-deep', 'oversized', 'not-text', 'invalid-unicode'])
 def test_non_json_duplicate_keys_and_oversized_outputs_fail_without_crashing(case, raw):
     result = score_raw(raw, case['input'])
     assert not result['json_valid'] and not result['structural_pass']

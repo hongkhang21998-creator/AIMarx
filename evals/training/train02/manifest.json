@@ -1,0 +1,12 @@
+{
+  "format": "train02-v1",
+  "count": 120,
+  "split_counts": {
+    "train": 80,
+    "validation": 20,
+    "smoke-test": 20
+  },
+  "cases_sha256": "adbf6b714868e2cc53be933fe0d34408bfaabab0bd27c108648612a046ce222b",
+  "contract_sha256": "b7b62cd60d43d93ab2aedb3d0318470b0c992b43d390659add692cc5e4e3536b",
+  "exposure": "repository_exposed_not_blind"
+}

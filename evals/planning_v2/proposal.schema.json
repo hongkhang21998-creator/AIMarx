@@ -1,0 +1,242 @@
+{
+  "$defs": {
+    "Citation": {
+      "additionalProperties": false,
+      "properties": {
+        "source_id": {
+          "pattern": "^[a-z][a-z0-9_-]{0,47}$",
+          "title": "Source Id",
+          "type": "string"
+        },
+        "version": {
+          "maximum": 2147483647,
+          "minimum": 1,
+          "title": "Version",
+          "type": "integer"
+        },
+        "block_id": {
+          "pattern": "^[a-z][a-z0-9_-]{0,47}$",
+          "title": "Block Id",
+          "type": "string"
+        },
+        "quote": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Quote",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_id",
+        "version",
+        "block_id",
+        "quote"
+      ],
+      "title": "Citation",
+      "type": "object"
+    },
+    "OutputRef": {
+      "additionalProperties": false,
+      "properties": {
+        "step_id": {
+          "pattern": "^[a-z][a-z0-9_-]{0,47}$",
+          "title": "Step Id",
+          "type": "string"
+        },
+        "output_schema_id": {
+          "enum": [
+            "facts-v1",
+            "question-v1",
+            "draft-v1",
+            "review-v1"
+          ],
+          "title": "Output Schema Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "step_id",
+        "output_schema_id"
+      ],
+      "title": "OutputRef",
+      "type": "object"
+    },
+    "SourceRef": {
+      "additionalProperties": false,
+      "properties": {
+        "source_id": {
+          "pattern": "^[a-z][a-z0-9_-]{0,47}$",
+          "title": "Source Id",
+          "type": "string"
+        },
+        "version": {
+          "maximum": 2147483647,
+          "minimum": 1,
+          "title": "Version",
+          "type": "integer"
+        },
+        "block_id": {
+          "pattern": "^[a-z][a-z0-9_-]{0,47}$",
+          "title": "Block Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_id",
+        "version",
+        "block_id"
+      ],
+      "title": "SourceRef",
+      "type": "object"
+    },
+    "Step": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[a-z][a-z0-9_-]{0,47}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "goal": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Goal",
+          "type": "string"
+        },
+        "worker_id": {
+          "enum": [
+            "extract",
+            "ask_user",
+            "draft",
+            "verify"
+          ],
+          "title": "Worker Id",
+          "type": "string"
+        },
+        "depends_on": {
+          "items": {
+            "pattern": "^[a-z][a-z0-9_-]{0,47}$",
+            "type": "string"
+          },
+          "maxItems": 5,
+          "title": "Depends On",
+          "type": "array"
+        },
+        "source_refs": {
+          "items": {
+            "$ref": "#/$defs/SourceRef"
+          },
+          "maxItems": 32,
+          "title": "Source Refs",
+          "type": "array"
+        },
+        "input_refs": {
+          "items": {
+            "$ref": "#/$defs/OutputRef"
+          },
+          "maxItems": 5,
+          "title": "Input Refs",
+          "type": "array"
+        },
+        "output_schema_id": {
+          "enum": [
+            "facts-v1",
+            "question-v1",
+            "draft-v1",
+            "review-v1"
+          ],
+          "title": "Output Schema Id",
+          "type": "string"
+        },
+        "completion_checks": {
+          "items": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "maxItems": 6,
+          "minItems": 1,
+          "title": "Completion Checks",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "goal",
+        "worker_id",
+        "depends_on",
+        "source_refs",
+        "input_refs",
+        "output_schema_id",
+        "completion_checks"
+      ],
+      "title": "Step",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "proposal-v2",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "decision": {
+      "enum": [
+        "plan",
+        "ask",
+        "no_action",
+        "out_of_scope"
+      ],
+      "title": "Decision",
+      "type": "string"
+    },
+    "requested_product": {
+      "maxLength": 2000,
+      "minLength": 1,
+      "pattern": "\\S",
+      "title": "Requested Product",
+      "type": "string"
+    },
+    "evidence_quotes": {
+      "items": {
+        "$ref": "#/$defs/Citation"
+      },
+      "maxItems": 32,
+      "title": "Evidence Quotes",
+      "type": "array"
+    },
+    "missing_information": {
+      "items": {
+        "maxLength": 2000,
+        "minLength": 1,
+        "pattern": "\\S",
+        "type": "string"
+      },
+      "maxItems": 12,
+      "title": "Missing Information",
+      "type": "array"
+    },
+    "steps": {
+      "items": {
+        "$ref": "#/$defs/Step"
+      },
+      "maxItems": 6,
+      "title": "Steps",
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "decision",
+    "requested_product",
+    "evidence_quotes",
+    "missing_information",
+    "steps"
+  ],
+  "title": "Proposal",
+  "type": "object"
+}

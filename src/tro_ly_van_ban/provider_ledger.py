@@ -817,7 +817,12 @@ def mark_unresolved(conn, attempt_id: str, *, reason: str, now_ms: int) -> None:
         _check_clock(conn, now_ms)
         snapshot_id, _, _, reserved, _, state, _ = _attempt(conn, attempt_id)
         if state == "unresolved":
-            return                      # idempotent
+            prior_reason = conn.execute(
+                "SELECT end_reason FROM ledger_attempts WHERE attempt_id=?", (attempt_id,)
+            ).fetchone()[0]
+            if prior_reason != reason:
+                raise _unavailable("UNRESOLVED_CONFLICT")
+            return                      # exact replay; conflicting evidence is not ignored
         if state != "reserved":
             raise _unavailable("SETTLEMENT_CONFLICT")
         _cas(conn, attempt_id, "reserved", "unresolved", actual=None, now_ms=now_ms, reason=reason)

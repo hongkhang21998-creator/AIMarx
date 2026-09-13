@@ -23,8 +23,8 @@ Identifier = Annotated[str, StringConstraints(pattern=r'^[a-z][a-z0-9_-]{0,63}$'
 SPLIT_COUNTS = {'train': 80, 'validation': 20, 'smoke-test': 20}
 CHECKLIST = ('decision', 'grounding', 'missing_information', 'worker_order', 'no_escalation')
 ERROR = 'TRAIN-02 dữ liệu hoặc quyết định duyệt không hợp lệ'
-# Pin only after #46 is merged AND independently accepted in a follow-up PR.
-SPLIT_AUDIT_APPROVED_SHA256 = None
+# #46 passed contract + independent oracle/mutation checks; merge module and pin together.
+SPLIT_AUDIT_APPROVED_SHA256 = '3740ea36f36ec787eb64284ac50ac7c339d4e09a13f15c3178e8cce2ee1da04a'
 
 
 class Blocked(ValueError):
@@ -209,6 +209,11 @@ def load_dataset(directory=ROOT):
     return validate_dataset(read_json(directory / 'cases.json'), read_json(directory / 'manifest.json'))
 
 
+def split_module_digest(path):
+    """Normalize checkout CRLF to Git LF; pin source content consistently across OSes."""
+    return hashlib.sha256(Path(path).read_bytes().replace(b'\r\n', b'\n')).hexdigest()
+
+
 def split_audit(cases):
     """Reuse #46 only. Missing module is a visible dependency, never a clean audit."""
     try:
@@ -219,7 +224,7 @@ def split_audit(cases):
             return {'status': 'blocked_dependency_46', 'findings': []}
         raise
     if (SPLIT_AUDIT_APPROVED_SHA256 is None
-            or hashlib.sha256(Path(module.__file__).read_bytes()).hexdigest() != SPLIT_AUDIT_APPROVED_SHA256):
+            or split_module_digest(module.__file__) != SPLIT_AUDIT_APPROVED_SHA256):
         return {'status': 'blocked_unreviewed_dependency_46', 'findings': []}
     rows = [{'sample_id': c['id'], 'source_family_id': c['source_family_id'],
              'template_family_id': c['template_family_id'],

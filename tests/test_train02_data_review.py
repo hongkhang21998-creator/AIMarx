@@ -344,3 +344,66 @@ def test_multi_source_checks_before_and_after_draft():
     assert steps[2]['input_refs'] == [
         {'step_id': 's1', 'output_schema_id': 'facts-v1'},
         {'step_id': 's2', 'output_schema_id': 'review-v1'}]
+
+
+APPROVED = core.ROOT / 'reviews' / '2026-09-13-khang'
+
+
+def test_approved_snapshot_matches_human_reviewed_content():
+    originals, reviewed = core.load_dataset(), core.load_dataset(APPROVED)
+    assert len(reviewed) == 120
+    for original, approved in zip(originals, reviewed):
+        assert original['content_sha256'] == approved['content_sha256']
+        assert all(original[key] == approved[key] for key in ('input', 'reference', 'rubric', 'split'))
+        assert core.effective_review(approved) == ('approved', True, True)
+        assert len(approved['review_history']) == 2
+        first, last = approved['review_history']
+        assert first['training_approved'] is False and first['export_approved'] is False
+        assert last['reviewer'] == 'Nguyen Hong Khang'
+        assert 'khong phát sinh thêm chi phí' in last['reason']
+    assert core.split_audit(reviewed) == {'status': 'ok', 'findings': []}
+
+
+@pytest.mark.parametrize('field,code', [('source_family_id', 'SOURCE_FAMILY_LEAK'),
+                                      ('template_family_id', 'TEMPLATE_FAMILY_LEAK')])
+def test_real_split_auditor_blocks_cross_split_family(field, code):
+    reviewed = core.load_dataset(APPROVED)
+    before = reviewed[0]
+    changed = next(c for c in reviewed if c['split'] == 'validation')
+    changed[field] = before[field]
+    replacement = core.refresh(changed)
+    reviewed = [replacement if c['id'] == changed['id'] else c for c in reviewed]
+    assert any(f['code'] == code for f in core.split_audit(reviewed)['findings'])
+    with pytest.raises(core.Blocked, match='#46'):
+        core.export_rows(reviewed, 'train')
+
+
+def test_pin_is_newline_independent_but_detects_content_changes(tmp_path):
+    module = ROOT / 'evals' / 'training' / 'split_audit.py'
+    content = module.read_bytes().replace(b'\r\n', b'\n')
+    crlf = tmp_path / 'split_audit.py'
+    crlf.write_bytes(content.replace(b'\n', b'\r\n'))
+    assert core.split_module_digest(crlf) == core.SPLIT_AUDIT_APPROVED_SHA256
+    crlf.write_bytes(content + b'# changed\n')
+    assert core.split_module_digest(crlf) != core.SPLIT_AUDIT_APPROVED_SHA256
+
+
+def test_real_cli_exports_80_20_from_approved_snapshot(tmp_path):
+    result = run_cli('check', '--data', APPROVED)
+    assert result.returncode == 0, result.stdout + result.stderr
+    status = json.loads(result.stdout)
+    assert status['approved'] == 120 and status['export_ready'] is True
+    for split, count in [('train', 80), ('validation', 20)]:
+        output = tmp_path / (split + '.jsonl')
+        result = run_cli('export', '--data', APPROVED, '--split', split, '--output', output)
+        assert result.returncode == 0, result.stdout + result.stderr
+        rows = [json.loads(line) for line in output.read_text(encoding='utf-8').splitlines()]
+        assert len(rows) == count
+        expected = {c['id'] for c in core.load_dataset(APPROVED) if c['split'] == split}
+        actual = {json.loads(row['prompt'])['id'] for row in rows}
+        assert actual == expected
+        for row in rows:
+            assert set(json.loads(row['prompt'])) == {'id', 'input', 'instruction', 'output_schema'}
+            assert set(row) == {'prompt', 'completion'}
+    assert run_cli('export', '--data', APPROVED, '--split', 'smoke-test', '--output', tmp_path/'test.jsonl').returncode != 0
+    assert not (tmp_path/'test.jsonl').exists()

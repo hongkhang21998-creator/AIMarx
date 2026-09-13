@@ -12,9 +12,9 @@ tác mua tài nguyên.
 Phạm vi này không sửa tooling Windows đang được tác vụ khác tiếp tục. Notebook
 khóa `Qwen/Qwen3-0.6B` revision
 `c1899de289a04d12100db370d81485cdf75e47ca`, non-thinking, LoRA r=8/alpha=16,
-batch 1, context 2.048 và tối đa 5 optimizer steps. Context 2.048 phù hợp hơn môi
-trường GPU; mọi mẫu vẫn được audit token thật và job dừng nếu có mẫu vượt giới
-hạn, không truncation.
+batch 1, context 4.096 và tối đa 5 optimizer steps. Lần chạy T4 phát hiện một
+mẫu cần 2.381 token, nên context được tăng trong cấu hình Colab; mọi mẫu vẫn được
+audit token thật và job dừng nếu có mẫu vượt giới hạn, không truncation.
 
 Dữ liệu được export trong Colab từ snapshot approved; chỉ 80 train và 20
 validation với checksum đã nghiệm thu. 20 smoke-test không được export. Phase 1
@@ -26,4 +26,3 @@ mount Drive.
 Tại thời điểm tạo PR, code và test local có thể được nghiệm thu nhưng GPU smoke
 chỉ được gọi là thành công khi notebook thực tế sinh `checkpoint-5` và manifest
 `global_step=5`. Kết quả năm bước không chứng minh chất lượng nghiệp vụ tăng.
-

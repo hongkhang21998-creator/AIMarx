@@ -1,5 +1,20 @@
 # Kế hoạch trợ lý xử lý văn bản: AI agent + SLM + MCP
 
+## Phân công hiện hành — 12/09/2026: Astra, Sol, Luna, Gemini
+
+Theo chỉ đạo anh Khang, ngừng giao việc phát triển mới cho Claude/Opus. Đội dự án gồm Astra, Sol, Luna và Gemini; quyết định này thay các phân công cũ và quyết định dừng Gemini ngày 11/09. Giữ nguyên tác giả, commit và biên bản của những đóng góp đã hoàn thành.
+
+| Thành viên | Trách nhiệm hiện hành |
+|---|---|
+| Astra | Kiến trúc, proposal-v2, hợp đồng API/DB, quyền/ngân sách, quyết định model và nghiệm thu tích hợp; review phần khó |
+| Sol | Tiếp quản lõi service/scheduler/checkpoint, adapter, migration và pipeline train/export/resume theo hợp đồng Astra |
+| Luna | Fixture, kiểm metadata/nguồn, rubric hỗ trợ, báo cáo benchmark và kiểm hồi quy trong phạm vi file riêng |
+| Gemini | Module Python thuần và dataset tooling nhỏ theo đặc tả; bắt đầu bằng G-TEST-01 #46, mở rộng sau nghiệm thu |
+| Anh Khang | Duyệt đáp án nghiệp vụ, quyền dùng dữ liệu/tài nguyên, sản phẩm và merge PR |
+
+Đây là đội xây dựng AIMarx, không phải danh sách model phải nạp trong sản phẩm. Runtime vẫn SLM đề xuất → backend kiểm → một worker/lần → lưu và kiểm kết quả → anh duyệt. Không tự thay model/provider, bật cloud hoặc train vì thay đội phát triển. Mỗi gói có một người sở hữu file; tiếp quản từ main đã merge, giữ hợp đồng và test cũ. Các phiếu Claude cũ chỉ dùng tham khảo lịch sử, phần chưa xong phải được Astra chia lại cho Sol. Phân công không đồng nghĩa đã khởi chạy phiên agent.
+
+
 ## Cập nhật 12/09/2026 — kế hoạch train SLM
 
 Theo yêu cầu anh Khang ở PR #45, bổ sung [kế hoạch fine-tune SLM](docs/SLM_TRAINING_PLAN.md): benchmark local → schema/dataset được duyệt → smoke QLoRA trên GPU → pilot → kiểm lại GGUF trên ASUS. Ứng viên đầu là Qwen3 1.7B non-thinking, chỉ chốt sau khi so với 0.6B và Qwen3.5 0.8B trên máy thực tế. Đây là kế hoạch, chưa train hoặc thuê GPU.
@@ -7,10 +22,6 @@ Theo yêu cầu anh Khang ở PR #45, bổ sung [kế hoạch fine-tune SLM](doc
 Điều chỉnh phụ thuộc của bảng HOS bên dưới: có thể chuẩn bị schema/dataset HOS-02, benchmark chỉ đề xuất HOS-03 và phần offline của HOS-06 trước khi hoàn tất đường cloud HOS-01. Bật thực thi HOS-04/05 vẫn phải qua scheduler, quyền, ledger, adapter và kiểm thử đầu-cuối. PR #44 đã merge ledger tại main `05c8152`; câu “PolicyGate là việc tiếp theo” trong lịch cũ không còn là trạng thái hiện hành.
 
 Việc đầu tiên theo kế hoạch là TRAIN-01: proposal-v2, rubric và 30–50 ca baseline. Model sinh đề xuất; trạng thái, attempts và quyền chạy do backend cấp. Chi tiết chia tập, nguồn dữ liệu, cấu hình train, ngân sách và các ngưỡng nghiệm thu nằm trong tài liệu liên kết. Chưa khởi chạy các gói TRAIN trong PR này.
-
-## Cập nhật phân công 11/09/2026
-
-Gemini không còn là tác nhân phát triển được giao việc chủ động, theo yêu cầu người dùng sau thử CLI hết quota và AI Studio bị từ chối quyền chạy. Astra giữ kiến trúc, API, kiểm thử và điều phối; Claude giữ mã lõi và nhận gói phụ được chia riêng. Nội dung phân công Gemini ở bản kế hoạch cũ bên dưới hết hiệu lực; không xóa đóng góp đã nghiệm thu. Hướng SLM local điều phối worker GLM/DeepSeek/... vẫn giữ nguyên, không phụ thuộc Gemini làm thợ xây.
 
 ## Bổ sung thực hiện 10/09/2026 — SLM local điều phối swarm
 
@@ -75,7 +86,7 @@ Chạy model có sẵn trên máy là bước đầu; fine-tune và huấn luy�
 
 ### Phân công
 
-Astra chốt schema điều phối, hàng rào quyền/chi phí và benchmark; Claude giữ lõi service, phiên bản và tích hợp workflow theo hợp đồng; Gemini nhận fixture tổng hợp/hàm nhỏ có đường dẫn sở hữu rõ. Phần API, transaction và kiểm lỗi phối hợp nên dùng Astra với mức suy luận high khi bắt đầu tác vụ đó. Đây là phân công phát triển; SLM/worker là các model chạy trong sản phẩm. Mỗi gói có nhánh, test, WORKLOG và PR riêng; anh merge.
+Áp dụng bảng phân công hiện hành ở đầu tài liệu. Sol tiếp quản lõi và train tooling; Astra review kiến trúc/tích hợp, Luna và Gemini nhận phạm vi độc lập. Không khởi chạy agent trong lần cập nhật kế hoạch này.
 
 ---
 

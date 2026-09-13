@@ -1,5 +1,16 @@
 # Nhật ký phối hợp
 
+## 2026-09-12 — codex/team-astra-sol-luna-gemini
+
+- Yêu cầu: loại Claude khỏi phân công mới; dùng Astra, Sol, Luna, Gemini; đồng bộ tiến độ/kế hoạch/kiến trúc train.
+- Base main: 19126b915e36a5d9cc3d451c1e62e8f99e0c02a3. Astra thực hiện cập nhật tài liệu; không khởi chạy agent phát triển hoặc job train.
+- Sol tiếp quản lõi và train tooling; Astra giữ kiến trúc/review; Luna kiểm dữ liệu/benchmark; Gemini gói thuần theo hợp đồng. Giữ tác giả và lịch sử Claude, không xóa code hoặc tài khoản.
+- Đối chiếu trực tiếp GitHub: #44/#45 đã merge; snapshot/grant và planning eval đã merge. #46 mới có module gửi trong hội thoại qua 64 ca độc lập của phiên trước; bản test/handoff đầy đủ chưa nhận, chưa nghiệm thu.
+- Cập nhật KE_HOACH_AI_AGENT.md, TIEN_DO.md, docs/SLM_TRAINING_PLAN.md, docs/PROVIDER_SECURITY_CONTRACT.md và WORKLOG.md. Kiến trúc giữ offline train riêng, runtime tuần tự một worker, quyền/ledger do backend.
+- Kiểm tra lần này: đối chiếu trạng thái PR, rà phân công hiện hành và phạm vi diff; không chạy regression vì chỉ sửa Markdown. Lịch sử bên dưới giữ nguyên, các trạng thái/phân công cũ không còn là lệnh hiện hành.
+- Bàn giao: PR riêng; anh merge. Rollback bằng revert PR tài liệu, không đổi DB/runtime. Tiếp theo TRAIN-01 do Astra, #46 Gemini hoàn thiện; chưa cấp quyền GPU/API hoặc xuất dữ liệu.
+
+
 ## 2026-09-12 — codex/sequential-slm-swarm — chốt SLM chia nhỏ và điều phối tuần tự
 
 - Theo chỉ đạo người dùng: AIMarx phục vụ khối lượng công việc không lớn, nên SLM phải phân rã yêu cầu thành bước nhỏ, xếp thứ tự phụ thuộc và giao từng bước cho agent; không chạy nhiều agent cùng lúc.

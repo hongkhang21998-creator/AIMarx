@@ -1,12 +1,12 @@
 # Kế hoạch trợ lý xử lý văn bản: AI agent + SLM + MCP
 
-## Cập nhật 12/09/2026 — kế hoạch train SLM
+## Cập nhật 13/09/2026 — chỉ train SLM 0.6B
 
-Theo yêu cầu anh Khang ở PR #45, bổ sung [kế hoạch fine-tune SLM](docs/SLM_TRAINING_PLAN.md): benchmark local → schema/dataset được duyệt → smoke QLoRA trên GPU → pilot → kiểm lại GGUF trên ASUS. Ứng viên đầu là Qwen3 1.7B non-thinking, chỉ chốt sau khi so với 0.6B và Qwen3.5 0.8B trên máy thực tế. Đây là kế hoạch, chưa train hoặc thuê GPU.
+Theo quyết định mới của anh Khang ngày 13/09, [kế hoạch fine-tune SLM](docs/SLM_TRAINING_PLAN.md) chỉ dùng Qwen3 0.6B non-thinking: baseline 0.6B → dataset được duyệt → kiểm backend/tài nguyên → smoke LoRA/QLoRA và export/resume → pilot → kiểm GGUF trên Windows/ASUS. Windows là máy train mong muốn, nhưng GT 710 1 GB và RAM 8 GB chưa được xác nhận chạy được training. Không tự nâng model hoặc thuê GPU. Các ứng viên lớn hơn trong lịch sử bên dưới không áp dụng cho vòng train này.
 
 Điều chỉnh phụ thuộc của bảng HOS bên dưới: có thể chuẩn bị schema/dataset HOS-02, benchmark chỉ đề xuất HOS-03 và phần offline của HOS-06 trước khi hoàn tất đường cloud HOS-01. Bật thực thi HOS-04/05 vẫn phải qua scheduler, quyền, ledger, adapter và kiểm thử đầu-cuối. PR #44 đã merge ledger tại main `05c8152`; câu “PolicyGate là việc tiếp theo” trong lịch cũ không còn là trạng thái hiện hành.
 
-Việc đầu tiên theo kế hoạch là TRAIN-01: proposal-v2, rubric và 30–50 ca baseline. Model sinh đề xuất; trạng thái, attempts và quyền chạy do backend cấp. Chi tiết chia tập, nguồn dữ liệu, cấu hình train, ngân sách và các ngưỡng nghiệm thu nằm trong tài liệu liên kết. Chưa khởi chạy các gói TRAIN trong PR này.
+Tại main `380ebb4` (#50), TRAIN-01 có proposal-v2 và 36 reference; TRAIN-02 có 120 draft chưa được người duyệt, còn phụ thuộc #46. Tiếp theo hoàn tất cổng dữ liệu và chuẩn bị TRAIN-03 cho 0.6B. Model sinh đề xuất; trạng thái, attempts và quyền chạy do backend cấp. Cấu hình thử rank 8, context 1.024 token cần đo độ dài mẫu/bộ nhớ; chưa train trong lần đổi kế hoạch này.
 
 ## Cập nhật phân công 11/09/2026
 

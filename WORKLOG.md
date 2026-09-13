@@ -1,5 +1,15 @@
 # Nhật ký phối hợp
 
+## 2026-09-13 — codex/windows-training-readiness-20260913 — hạ kế hoạch xuống 0.6B
+
+- Theo anh Khang: đổi model train vòng đầu sang duy nhất Qwen/Qwen3-0.6B non-thinking; giữ Windows là máy đích mong muốn. Không tự nâng model nếu baseline không đạt.
+- Base main `380ebb41b2d79b00aeddb23e3e17639db61b99f4`; tiếp tục PR #51, sau commit bàn giao `a219eff`. Phạm vi: SLM_TRAINING_PLAN, KE_HOACH_AI_AGENT, TIEN_DO, WORKLOG và WINDOWS-TRAINING-2026-09-13; chỉ Markdown.
+- Cấu hình thử: rank 8/alpha 16, context 1.024, microbatch 1; token audit trước smoke, tăng 2.048 sau đo bộ nhớ, không cắt gold. Bỏ dự trù 16 GB cũ; không cam kết GT 710 1 GB train được 0.6B. Chưa tải/cài/train hoặc xuất dữ liệu.
+- Giữ quyền duyệt dữ liệu, split/test và chuẩn chất lượng; cập nhật trạng thái TRAIN-01/02 theo #48/#50 đã merge. CPU LoRA chỉ là hướng khảo sát, chưa kích hoạt.
+- PR #47 còn mở và chạm bốn tài liệu chung. Đã đọc diff trước sửa; giữ thay đổi lần này tập trung model/tài nguyên, không thay phân công của #47. Khi tích hợp phải giữ quyết định 0.6B và trạng thái #50 mới hơn; không lấy các đoạn model/tiến độ cũ của #47 ghi đè. Ghi rõ trong PR #51.
+- Kiểm tra: đối chiếu model card chính thức, rà toàn bộ diff Markdown, tham chiếu model và whitespace. Không chạy lại regression vì không đổi code/config runtime; kết quả 724 passed của lượt đồng bộ trước không phải benchmark training.
+
+
 ## 2026-09-12 — codex/sequential-slm-swarm — chốt SLM chia nhỏ và điều phối tuần tự
 
 - Theo chỉ đạo người dùng: AIMarx phục vụ khối lượng công việc không lớn, nên SLM phải phân rã yêu cầu thành bước nhỏ, xếp thứ tự phụ thuộc và giao từng bước cho agent; không chạy nhiều agent cùng lúc.

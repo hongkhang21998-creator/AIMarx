@@ -12,13 +12,14 @@ Theo chỉ đạo anh Nguyen Hong Khang, AIMarx phải chia yêu cầu thành t�
 
 Quyết định này áp dụng cho HOS-01–05: ưu tiên một workflow hoàn chỉnh, đúng nguồn và có người duyệt trên cấu hình 8 GB trước khi xem xét concurrency. “Swarm” trong giai đoạn đầu là nhiều vai trò phối hợp qua hàng đợi tuần tự; không yêu cầu nhiều model cùng nằm trong RAM.
 
-### Kế hoạch train — 12/09/2026, PR #45
+### Kế hoạch train — cập nhật 13/09/2026: chỉ Qwen3 0.6B
 
 - Đã lập [SLM_TRAINING_PLAN.md](docs/SLM_TRAINING_PLAN.md), đối chiếu main `05c8152` sau khi #44 merge. Các trạng thái PR trong ghi chép cũ bên dưới là lịch sử.
-- Hiện có 6 ca planning và 18 ca extraction làm reference/regression; chưa có dataset train được duyệt hoặc model AIMarx đã fine-tune.
-- Đề xuất Qwen3 1.7B QLoRA trên GPU sau baseline; ASUS i3/8 GB dùng chuẩn bị dữ liệu và inference tuần tự. Smoke 120 mẫu, pilot 800–1.200 mẫu đã duyệt, tách test theo họ nguồn.
+- Tại main `380ebb4` (#50), TRAIN-01 có 36 reference proposal-v2; TRAIN-02 có 120 draft, 0 approved, split audit blocked_dependency_46, export_ready=false. Giữ 6 ca planning và 18 extraction cũ làm regression; chưa có model fine-tuned.
+- Theo anh Khang: chỉ Qwen3 0.6B non-thinking; so base với fine-tuned cùng model. Thử LoRA rank 8, context 1.024 token sau token audit, tăng 2.048 chỉ khi bộ nhớ cho phép. Giữ smoke 120 mẫu và pilot 800–1.200 mẫu được duyệt, tách test theo họ nguồn.
+- Windows i3-12100/8 GB là máy train mong muốn; GT 710 1 GB chưa training-ready. TRAIN-03 kiểm backend trước khi tải model; CPU LoRA là hướng khảo sát riêng, chưa đo tốc độ/RAM. Bỏ dự trù 16 GB của kế hoạch model cũ, chưa cam kết mức VRAM mới.
 - Nghiệm thu bằng chất lượng trước/sau, kiểm quyền backend và RAM/độ trễ thực tế của GGUF; các ngưỡng trong kế hoạch chưa phải kết quả đo.
-- Tiếp theo: TRAIN-01 chốt schema/rubric/baseline. GPU miễn phí hoặc thuê còn chờ lựa chọn; chưa tải model, xuất dữ liệu hay chi tiền. Phân công TRAIN là đề xuất, chưa dispatch agent.
+- Tiếp theo: duyệt TRAIN-02, hoàn tất phụ thuộc #46 và chuẩn bị baseline/token audit 0.6B; không làm lại TRAIN-01. Chưa tải model, train, xuất dữ liệu hoặc chi tiền trong lần cập nhật này. Quyết định model mới cần giữ khi tích hợp PR #47 đang mở.
 
 ### Chính sách dữ liệu và trạng thái thực tế
 

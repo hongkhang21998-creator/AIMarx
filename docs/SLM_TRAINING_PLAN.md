@@ -1,8 +1,10 @@
 # Kế hoạch fine-tune SLM cho AIMarx
 
-Ngày 12/09/2026 · Astra · mở rộng PR #45 về điều phối tuần tự.
-Trạng thái: **kế hoạch để review, chưa train, chưa tải model hoặc phát sinh chi phí**.
-Mốc main đã đối chiếu: `05c8152` (LEDGER-01, PR #44 đã merge).
+Khởi lập 12/09/2026 · Astra · mở rộng PR #45 về điều phối tuần tự.
+Cập nhật 13/09/2026 theo anh Khang: **chỉ Qwen3 0.6B, non-thinking** cho vòng đầu.
+Trạng thái: **điều chỉnh kế hoạch để review; chưa train hoặc phát sinh chi phí**.
+Mốc main đã đối chiếu: `380ebb4` (TRAIN-02, PR #50 đã merge).
+Quyết định 0.6B này thay các đề xuất model lớn hơn trong kế hoạch cũ.
 
 ## 1. Mục tiêu và giới hạn của lần train đầu
 
@@ -28,9 +30,10 @@ Một model có thể lần lượt đóng nhiều vai trò; không nạp nhiề
 | `docs/qa/planning-v1/cases.json` | 6 ca giả lập: thiếu số liệu, hạn tương đối, hạn mâu thuẫn, không có việc, injection, nguồn trộn |
 | `evals/planning/score.py` | Chấm 6 trường; `suggested_steps` hiện là danh sách chuỗi, chưa có schema step/worker/depends_on |
 | `evals/extraction/cases.json` | 18 ca gồm dev/test/test2, dành regression trích xuất; không phải 18 kế hoạch gold |
-| Model local | Cấu hình đang dùng Qwen3 0.6B; chưa benchmark mới giữa 0.6B/1.7B/3.5-0.8B trong gói này |
+| Model local | Cấu hình Qwen3 0.6B; vòng này chỉ đo base 0.6B so với bản fine-tune 0.6B, chưa có benchmark mới |
 | Ledger | Đã merge #44; không đồng nghĩa đã có adapter mạng hoặc scheduler chạy được |
 | Dataset train / notebook / artifact | Chưa có bộ train được duyệt, chưa có training job/model AIMarx đã fine-tune |
+| TRAIN-01 / TRAIN-02 tại main #50 | 36 reference proposal-v2; 120 draft smoke (80/20/20), 0 approved; split audit còn blocked_dependency_46, export_ready=false |
 
 Giữ 6 + 18 ca hiện có làm regression/reference. Vì đã đọc chúng để thiết kế prompt
 và schema, không gọi chúng là test mù độc lập. Không lẫn đáp án `expected`/`gold`,
@@ -38,16 +41,16 @@ và schema, không gọi chúng là test mù độc lập. Không lẫn đáp á
 
 ## 3. Model và phần cứng
 
-**Ứng viên train đầu: `Qwen/Qwen3-1.7B`, chế độ không thinking.** Đây là lựa chọn
-kỹ thuật tạm thời dựa trên kích thước và đường fine-tune/export có tài liệu, chưa
-phải kết luận thắng chất lượng tiếng Việt. Chỉ chốt sau baseline trên ASUS.
+**Model train duy nhất của vòng đầu: `Qwen/Qwen3-0.6B`, `enable_thinking=False`.**
+Đây là quyết định giảm quy mô của anh Khang ngày 13/09/2026. Baseline vẫn bắt buộc
+để đo chất lượng; không dùng baseline để tự nâng model lên kích thước lớn hơn.
 
 | Vai trò | Model / điều kiện |
 |---|---|
 | Baseline sản phẩm | Qwen3 0.6B hiện có, cùng prompt/schema đã chốt |
-| Ứng viên chính | Qwen3 1.7B; bản inference Q4_K_M để đo trên ASUS |
-| Đối chứng nhẹ | Qwen3.5 0.8B; đo trước, không mặc định model mới hơn sẽ tốt hơn |
-| Nếu 1.7B không qua RAM/latency | Chọn model nhẹ thắng benchmark và xác minh lại toàn bộ recipe/export; không ép train 1.7B |
+| Ứng viên fine-tune | Cùng base Qwen3 0.6B, pin revision; bản inference Q4_K_M đo riêng trên Windows và ASUS |
+| Phạm vi benchmark | Base 0.6B so với fine-tuned 0.6B; model lớn hơn nằm ngoài vòng này |
+| Nếu 0.6B không đạt | Báo lỗi và thu hẹp tác vụ/context có kiểm chứng; không tự đổi model hoặc hạ chuẩn nguồn/quyền |
 
 Máy đã đo: i3-8130U, 2 nhân/4 luồng, UHD 620, hệ thống nhận 7,1 GiB RAM. Mức
 available 3,2 GiB là ảnh chụp một thời điểm, không là ngân sách cố định. Đã từng OOM.
@@ -55,16 +58,20 @@ ASUS dùng soạn/kiểm dữ liệu và inference từng yêu cầu; không ch�
 train GPU. RAM hệ thống không tương đương VRAM CUDA. Dung lượng GGUF không phải
 đỉnh RAM ứng dụng.
 
-Đề xuất một GPU CUDA khoảng **16 GB VRAM** cho pilot QLoRA model 1.7B, context ngắn;
-đây là mức dự trù tài nguyên, không phải cam kết đủ cho mọi backend/config. Smoke
-20–50 optimizer steps phải đo VRAM, host RAM và thời gian trước khi mở lượt đầy đủ.
-Trên GPU không hỗ trợ BF16 chọn FP16 đã thử tương thích. Merge/export cũng làm trên
-máy train có đủ host RAM/disk, không ép nạp bản đầy đủ trên ASUS.
+Windows là máy đích anh muốn dùng train chính. Kiểm ngày 13/09: i3-12100, RAM
+7,78 GiB, GT 710 chỉ 1.024 MiB VRAM, driver 456.71. **Chưa đạt training-ready**;
+giảm xuống 0.6B không chứng minh GPU/driver tương thích hoặc đủ VRAM cho QLoRA.
+Bỏ dự trù 16 GB của phương án cũ; không thay bằng một mức VRAM tối thiểu chưa đo.
+TRAIN-03 phải kiểm backend/GPU trước khi tải model, sau đó smoke 20–50 optimizer
+steps trên tài nguyên phù hợp, đo VRAM, host RAM và thời gian trước pilot.
+CPU LoRA trên Windows là hướng cần khảo sát tính khả thi riêng, chưa có benchmark
+hoặc cam kết vừa RAM/tốc độ; không tự chuyển sang CPU khi GPU thất bại.
+Trên GPU không hỗ trợ BF16 chọn FP16 đã thử tương thích. Merge/export cũng cần
+đo host RAM/disk; không ép nạp bản đầy đủ khi thiếu bộ nhớ.
 
-[Model card Qwen3-1.7B](https://huggingface.co/Qwen/Qwen3-1.7B) hỗ trợ lựa chọn chế
-độ thinking/non-thinking; [hướng dẫn Unsloth Qwen3](https://unsloth.ai/docs/models/tutorials/qwen3-how-to-run-and-fine-tune.md)
-có đường fine-tune và bản 1.7B. Không sao chép notebook model 14B thành cấu hình
-chạy mặc định của dự án.
+[Model card Qwen3-0.6B](https://huggingface.co/Qwen/Qwen3-0.6B) xác nhận model 0.6B
+và hỗ trợ `enable_thinking=False`. Fine-tune/export phải kiểm với đúng base này;
+không coi file GGUF inference là trọng số dùng để train.
 
 ## 4. Hợp đồng dữ liệu cần chốt trước khi sinh dataset
 
@@ -142,10 +149,10 @@ Cấu hình **khởi điểm để kiểm chứng**, không phải cấu hình t
 
 | Tham số | Pilot đề xuất |
 |---|---|
-| Base | Pin model ID + revision SHA, tokenizer và chat template |
+| Base | Qwen/Qwen3-0.6B; pin revision SHA, tokenizer và chat template non-thinking |
 | Quant train | 4-bit NF4 + double quantization, dtype theo GPU |
-| LoRA | r=16, alpha=32, dropout=0,05; target attention/MLP linear đã xác minh với model |
-| Context train | 2.048 token tổng prompt + completion; tăng 4.096 chỉ sau đo VRAM |
+| LoRA | r=8, alpha=16, dropout=0,05; cần xác minh target attention/MLP linear với model 0.6B trước train |
+| Context train | Bắt đầu 1.024 token tổng prompt + completion nếu mẫu vừa; 2.048 chỉ sau đo bộ nhớ, chưa mở 4.096 ở vòng đầu |
 | Batch | Microbatch 1, accumulation 16, gradient checkpointing |
 | Learning rate | 1e-4 khởi điểm; tối đa một thử 5e-5 nếu validation cho thấy cần |
 | Epoch | 1 trước; tối đa 3 theo validation, không train kéo dài chỉ vì train loss giảm |
@@ -162,6 +169,9 @@ không kiểm soát hoặc tự sửa dependency runtime của AIMarx.
 Training và inference phải cùng cách serialize nguồn, schema và non-thinking
 chat template. Không cắt âm thầm phần cuối gold khi quá context: loại/thu nhỏ mẫu
 có ghi nhận hoặc thiết kế bước theo đoạn. Tắt telemetry dataset và auto push_to_hub.
+Trước smoke, đo độ dài token của toàn bộ mẫu bằng tokenizer đã pin, báo số mẫu
+vượt 1.024/2.048 và phân bố theo nhóm/split. Không sửa gold/schema hoặc loại mẫu
+khó âm thầm để vừa cấu hình nhỏ; thay mẫu cần duyệt lại, mẫu test không dùng để tune.
 Checkpoint để resume train cần optimizer/scheduler/RNG state; phân biệt với adapter
 nhỏ dùng inference. Thử dừng/khôi phục một lượt smoke trước pilot thật.
 
@@ -171,11 +181,13 @@ hơn, tiết kiệm RAM hơn hay xử lý dài hơn cùng kiến trúc/context.
 
 ## 7. Nơi train, ngân sách và điểm dừng
 
-**Chưa chọn tài nguyên/duyệt phí trong phiên lập kế hoạch.** Giữ hai phương án để anh
-chốt; việc này không ngăn chuẩn bị schema, dataset và baseline local.
+**Ưu tiên máy Windows theo yêu cầu anh Khang; chưa chốt backend train khả thi hoặc
+duyệt phí.** Kiểm phần cứng trước; các phương án GPU bên ngoài chỉ là dự phòng
+cần quyết định riêng. Việc này không ngăn chuẩn bị schema, dataset và baseline local.
 
 | Phương án | Cách triển khai | Điều kiện trước khi chạy |
 |---|---|---|
+| Windows local ưu tiên | Qwen3 0.6B; khảo sát backend và bộ nhớ trước smoke | GT 710 1 GB chưa được xác nhận phù hợp; CPU LoRA chỉ sau khảo sát và chốt recipe riêng |
 | GPU miễn phí, ví dụ Colab | Notebook private, dữ liệu đã duyệt; checkpoint ra kho bền vững được chọn | Kiểm GPU được cấp và hạn phiên, xác nhận quyền upload, smoke/resume được |
 | GPU thuê | Một GPU phù hợp pilot; tắt máy sau job và export | Anh duyệt provider/vùng dữ liệu và trần chi phí cụ thể sau khi có báo giá |
 
@@ -261,7 +273,7 @@ triển khai HOS-04 chỉ vì model được fine-tune. Những phụ thuộc d�
 |---|---|---|
 | TRAIN-01 | Astra | Chốt proposal-v2, rubric, split/rights manifest, baseline protocol; schema/scorer mới có test; chưa train |
 | TRAIN-02 | Claude/Opus + anh duyệt nghiệp vụ | Dataset tooling và 120 mẫu smoke được duyệt, kiểm near-duplicate/mask; không sửa ledger |
-| TRAIN-03 | Astra | Benchmark 0.6B/1.7B/3.5-0.8B, chốt model, GPU và ngân sách; smoke train/export/resume sau quyền tài nguyên/dữ liệu |
+| TRAIN-03 | Astra | Chỉ Qwen3 0.6B: baseline, token-length audit, kiểm backend trên Windows, chốt tài nguyên; smoke train/export/resume sau quyền tài nguyên/dữ liệu |
 | TRAIN-04 | Claude/Opus + anh duyệt | Pilot 800–1.200 gold và recipe tái lập; chỉ dùng train/validation để chọn candidate |
 | TRAIN-05 | Astra, anh chấm nghiệm thu | Test mù, so base/GGUF trên ASUS, báo go/no-go; chỉ tạo candidate/shadow |
 
@@ -277,6 +289,6 @@ không phải model đã đủ dùng. Với pilot, riêng duyệt 800–1.200 m�
 chỉ ước lượng sau smoke. Tăng tốc bằng mục tiêu hẹp và batch duyệt rõ, không hứa
 hoàn thành train chất lượng nghiệp vụ trong một ngày.
 
-**Việc nên nhận đầu tiên:** TRAIN-01 — schema proposal và bộ chấm cho hàng đợi tuần
-tự, kèm 30–50 ca baseline đa dạng. Đây là bước tạo được kết quả review ngay trước
-khi đầu tư GPU/dataset lớn. Việc trong PR #45 hiện chỉ là kế hoạch này.
+**Việc tiếp theo tại mốc #50:** hoàn tất duyệt TRAIN-02 và phụ thuộc #46; chuẩn bị
+TRAIN-03 cho đúng 0.6B, kiểm backend và độ dài token trước smoke. TRAIN-01 đã có
+schema/36 reference, không làm lại. Chưa có training job hoặc model fine-tuned.

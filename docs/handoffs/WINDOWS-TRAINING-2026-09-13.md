@@ -3,14 +3,16 @@
 Ngày 13/09/2026. Người thực hiện: Codex, theo yêu cầu anh Nguyen Hong Khang.
 Base GitHub main: `380ebb41b2d79b00aeddb23e3e17639db61b99f4` (PR #50).
 Nhánh bàn giao: `codex/windows-training-readiness-20260913`.
-Phạm vi sở hữu: chỉ file bàn giao này; không sửa các gói TRAIN, ledger,
-kế hoạch hoặc WORKLOG đang được các task khác quản lý. PR do anh Khang merge.
+Phạm vi ban đầu: file bàn giao này. Theo yêu cầu tiếp theo hạ xuống 0.6B, PR #51
+cập nhật thêm SLM_TRAINING_PLAN, KE_HOACH_AI_AGENT, TIEN_DO và WORKLOG.
+Đã đối chiếu PR #47 đang mở; khi tích hợp giữ quyết định model mới và phân công
+của gói đó, không ghi đè bằng tiến độ/model cũ. PR do anh Khang merge.
 
 ## Yêu cầu và kết luận
 
 Anh Khang muốn máy Windows này là nơi train chính vì có GPU rời.
 Ghi nhận Windows là máy đích mong muốn; trạng thái **chưa đủ điều kiện train
-pilot Qwen3 1.7B theo kế hoạch hiện hành**. Chưa kích hoạt training hoặc thay đổi
+pilot Qwen3 0.6B theo kế hoạch đã giảm ngày 13/09**. Chưa kích hoạt training hoặc thay đổi
 vai trò vận hành của máy Linux. Có GPU rời không đồng nghĩa đủ khả năng QLoRA.
 
 ## Đồng bộ đã thực hiện
@@ -38,11 +40,12 @@ vai trò vận hành của máy Linux. Có GPU rời không đồng nghĩa đủ
 | NVIDIA-SMI báo CUDA | 11.1; không chứng minh đã cài CUDA Toolkit |
 | Python trong venv | 3.14.6 |
 
-Kế hoạch `docs/SLM_TRAINING_PLAN.md` dự trù khoảng 16 GB VRAM cho pilot
-QLoRA Qwen3 1.7B và yêu cầu smoke 20–50 optimizer steps trước lượt đầy đủ.
-Đây là dự trù, không phải mức tối thiểu đã benchmark. GPU 1 GB hiện tại không
-đạt cấu hình dự trù và không có bằng chứng chạy được recipe này. Không cài stack
-cũ để cố ép GT 710 thành máy train chính.
+Kế hoạch `docs/SLM_TRAINING_PLAN.md` đã đổi từ Qwen3 1.7B xuống **Qwen3 0.6B**
+theo anh Khang. Dự trù 16 GB của phương án cũ được bỏ; không coi đó là yêu cầu
+tối thiểu cho 0.6B. Recipe mới thử rank 8/alpha 16, context 1.024 sau token audit;
+smoke 20–50 optimizer steps chỉ sau kiểm backend và quyền dữ liệu.
+GPU 1 GB hiện tại vẫn chưa có bằng chứng tương thích/đủ bộ nhớ. CPU LoRA là
+hướng khảo sát riêng, chưa train hoặc đo hiệu năng; không cài stack cũ để ép GPU.
 
 Tài liệu [bitsandbytes](https://huggingface.co/docs/bitsandbytes/main/en/installation)
 được đối chiếu ngày 13/09/2026 nêu CUDA compute capability 6.0+ cho NF4/FP4 và
@@ -71,8 +74,9 @@ hiệu năng cho các công việc đó.
 
 ## Bước tiếp theo và phối hợp
 
-1. Người dùng quyết định có nâng phần cứng máy Windows để đáp ứng máy train chính
-   hay chọn tài nguyên GPU khác. Chưa có quyết định mua/thuê hoặc trần chi phí.
+1. Chuẩn bị baseline/token audit đúng 0.6B; khảo sát backend phù hợp trên Windows.
+   Nếu GPU không phù hợp, báo lựa chọn thử CPU LoRA hoặc thay tài nguyên cùng các
+   giới hạn đã đo. Chưa có quyết định mua/thuê hoặc trần chi phí.
 2. Nếu nâng máy, kiểm GPU/VRAM, RAM, nguồn điện và khả năng lắp trước khi chọn thiết bị;
    dựng môi trường training riêng sau khi xác định GPU. Không dùng venv ứng dụng
    làm môi trường thử dependency training.

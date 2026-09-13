@@ -1,0 +1,204 @@
+{
+  "train01_43a_mutations": [
+    {
+      "mutation": "unresolved_conflict_ignored",
+      "caught": true,
+      "returncode": 1,
+      "test": "tests/test_ledger_43a.py::test_unresolved_replay_conflicting_reason_is_rejected_without_mutation",
+      "summary": [
+        "1 failed in 0.91s"
+      ]
+    },
+    {
+      "mutation": "authority_fields_ignored",
+      "caught": true,
+      "returncode": 1,
+      "test": "tests/test_planning_v2.py::test_model_cannot_add_authority_fields",
+      "summary": [
+        "6 failed in 0.27s"
+      ]
+    },
+    {
+      "mutation": "parallel_steps_allowed",
+      "caught": true,
+      "returncode": 1,
+      "test": "tests/test_planning_v2.py::test_invalid_execution_graph_or_worker_is_rejected[parallel]",
+      "summary": [
+        "1 failed in 0.10s"
+      ]
+    },
+    {
+      "mutation": "wrong_quote_accepted",
+      "caught": true,
+      "returncode": 1,
+      "test": "tests/test_planning_v2.py::test_citation_and_step_sources_are_bound_to_input[quote-quote_not_found]",
+      "summary": [
+        "1 failed in 0.10s"
+      ]
+    },
+    {
+      "mutation": "source_version_ignored",
+      "caught": true,
+      "returncode": 1,
+      "test": "tests/test_planning_v2.py::test_citation_and_step_sources_are_bound_to_input[version-unknown_source_or_version]",
+      "summary": [
+        "1 failed in 0.10s"
+      ]
+    },
+    {
+      "mutation": "gold_leaks_to_model",
+      "caught": true,
+      "returncode": 1,
+      "test": "tests/test_planning_v2.py::test_inference_export_cannot_leak_gold_or_rubric",
+      "summary": [
+        "1 failed in 0.10s"
+      ]
+    },
+    {
+      "mutation": "omitted_predictions_dropped",
+      "caught": true,
+      "returncode": 1,
+      "test": "tests/test_planning_v2.py::test_missing_predictions_count_as_failures_not_dropped",
+      "summary": [
+        "1 failed in 0.13s"
+      ]
+    }
+  ],
+  "ledger_regression_mutations": [
+    {
+      "mutation": "reserve_separate_transaction",
+      "caught": true,
+      "returncode": 1,
+      "test": "test_real_process_crash_rolls_back_whole_lifecycle",
+      "summary": [
+        "1 failed, 2 passed, 149 deselected in 4.30s"
+      ]
+    },
+    {
+      "mutation": "settle_early_commit",
+      "caught": true,
+      "returncode": 1,
+      "test": "test_loi_giua_settle_va_finish_rollback_ca_khoi",
+      "summary": [
+        "1 failed, 151 deselected in 0.82s"
+      ]
+    },
+    {
+      "mutation": "public_finish_bypass",
+      "caught": true,
+      "returncode": 1,
+      "test": "test_finish_cong_khai_khong_di_vong_qua_so",
+      "summary": [
+        "1 failed, 151 deselected in 0.78s"
+      ]
+    },
+    {
+      "mutation": "forget_unresolved_across_periods",
+      "caught": true,
+      "returncode": 1,
+      "test": "test_thieu_usage_thi_unresolved_chu_khong_phai_0",
+      "summary": [
+        "1 failed, 151 deselected in 0.86s"
+      ]
+    },
+    {
+      "mutation": "clamp_actual",
+      "caught": true,
+      "returncode": 1,
+      "test": "test_usage_vuot_reserve_ghi_du_va_khoa_dung_provider",
+      "summary": [
+        "1 failed, 151 deselected in 0.93s"
+      ]
+    },
+    {
+      "mutation": "ignore_replay_outcome",
+      "caught": true,
+      "returncode": 1,
+      "test": "test_settlement_replay_checks_full_result",
+      "summary": [
+        "1 failed, 1 passed, 150 deselected in 0.81s"
+      ]
+    },
+    {
+      "mutation": "reconcile_accept_conflict",
+      "caught": true,
+      "returncode": 1,
+      "test": "test_reconcile_exact_replay_and_conflict",
+      "summary": [
+        "1 failed, 151 deselected in 0.79s"
+      ]
+    },
+    {
+      "mutation": "unlock_provider_too_early",
+      "caught": true,
+      "returncode": 1,
+      "test": "test_doi_soat_khong_mo_khoa_khi_con_su_co_khac",
+      "summary": [
+        "1 failed, 151 deselected in 0.80s"
+      ]
+    },
+    {
+      "mutation": "clock_allows_bucket_rollback",
+      "caught": true,
+      "returncode": 1,
+      "test": "test_clock_backward_one_millisecond_across_bucket",
+      "summary": [
+        "1 failed, 1 passed, 150 deselected in 0.80s"
+      ]
+    },
+    {
+      "mutation": "unknown_owner_is_dead",
+      "caught": true,
+      "returncode": 1,
+      "test": "test_chua_chung_minh_duoc_chet_thi_cho_het_deadline",
+      "summary": [
+        "1 failed, 151 deselected in 0.79s"
+      ]
+    },
+    {
+      "mutation": "reservation_duck_type",
+      "caught": true,
+      "returncode": 1,
+      "test": "test_mutable_reservation_impostor_rejected",
+      "summary": [
+        "1 failed, 151 deselected in 0.78s"
+      ]
+    },
+    {
+      "mutation": "skip_release_snapshot_close",
+      "caught": true,
+      "returncode": 1,
+      "test": "test_failure_paths_close_snapshot_atomically",
+      "summary": [
+        "4 failed, 148 deselected in 0.91s"
+      ]
+    },
+    {
+      "mutation": "round_down",
+      "caught": true,
+      "returncode": 1,
+      "test": "test_lam_tron_len_khong_bao_gio_xuong",
+      "summary": [
+        "1 failed, 151 deselected in 0.76s"
+      ]
+    },
+    {
+      "mutation": "corrupt_state_as_zero",
+      "caught": true,
+      "returncode": 1,
+      "test": "test_corrupt_state_cannot_look_like_free_budget",
+      "summary": [
+        "6 failed, 146 deselected in 0.98s"
+      ]
+    },
+    {
+      "mutation": "context_unchecked",
+      "caught": true,
+      "returncode": 1,
+      "test": "test_verified_context_is_part_of_pricing_and_enforced",
+      "summary": [
+        "1 failed, 151 deselected in 0.79s"
+      ]
+    }
+  ]
+}

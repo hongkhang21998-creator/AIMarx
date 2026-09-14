@@ -4,7 +4,7 @@
 
 Hiện có nền văn bản, dữ liệu được duyệt và smoke Colab; chưa có hệ thống Mark. [Bảng đối soát Word](docs/DOI_SOAT_DONG_CHI_MARK_2026-09-14.md) là danh sách khoảng thiếu và câu hỏi hợp đồng; yêu cầu trong Word chưa tự trở thành chức năng đã triển khai.
 
-1. **Khép bằng chứng TRAIN-03:** anh review/merge #56; kiểm ZIP/checkpoint và hash ở máy đích, reload adapter để inference; so sánh base và adapter cùng ca, cùng cấu hình. Không tăng steps/model trước khi có báo cáo. Windows giữ cổng RAM; không phát sinh chi phí.
+1. **Khép pilot TRAIN-03:** anh review/merge PR pilot; giữ checkpoint-20 và hash, sinh đầu ra trên bộ đánh giá tách biệt rồi anh duyệt nghiệp vụ. Chỉ sau cổng đó mới quyết định giữ, dừng hoặc điều chỉnh 0.6B. Chưa tăng model, chưa dùng smoke-test để tune; Windows giữ cổng RAM và không phát sinh chi phí.
 2. **Chốt hợp đồng Mark trước code:** 7 vai trò logic trên một worker, Big Mark/Huấn không bỏ phiếu; định nghĩa quorum, ngưỡng đồng thuận, timeout, abstention, số vòng và deadlock. Chốt quyền từng vai trò, schema task/message và điều kiện user approval. Biểu quyết không thay kiểm nguồn hoặc quyền duyệt của anh.
 3. **Giai đoạn 1 — Big Mark + Văn/Kiểm/Gói + SQLite:** hàng đợi bền vững, trạng thái/checkpoint, thao tác lặp an toàn và khởi động lại không chạy trùng; nạp một model mỗi lần. Đây là đề xuất đưa phục hồi tối thiểu lên sớm so với giai đoạn 4 trong Word. Nghiệm thu bằng tắt giữa bước rồi mở lại, tác vụ lỗi và sửa sau duyệt.
 4. **Giai đoạn 2 — đủ 5 vai trò và biểu quyết tuần tự:** thêm Tìm/Tri, thứ tự bỏ phiếu đã chốt, timeout→abstain, deadlock→Big Mark có log. Test cấm Big Mark/Huấn bỏ phiếu, phiếu trùng/cũ, mất worker, injection và vượt quyền.

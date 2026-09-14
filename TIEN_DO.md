@@ -2,7 +2,7 @@
 
 ## Hiện trạng ngày 14/09/2026 — thay các số liệu trạng thái cũ bên dưới
 
-Đối chiếu main `b4bcad080bb65b9d293f26e7b6289f124561a3ec` và PR #56 tại `e2f826d`. Không quy đổi số test hoặc số dòng code thành phần trăm hoàn thành.
+Đối chiếu main `85d7e97b09de2bb5a1f6b4281ea6ce7ce455feb2` và lượt pilot tại code commit `ce188aca11c1bbaec8a0929e4172e66261ef2646`. Không quy đổi số test hoặc số dòng code thành phần trăm hoàn thành.
 
 | Hạng mục | Đã làm đến đâu | Còn thiếu |
 |---|---|---|
@@ -10,10 +10,10 @@
 | TRAIN-01 / PR #48 | 36 ca reference proposal-v2 và bằng chứng baseline | Reference/AI review không thay duyệt nghiệp vụ |
 | TRAIN-02 / PR #50, #52 | 120 mẫu approved ở snapshot riêng; quyền train/export; split audit #46 đã tích hợp | Root draft giữ nguyên để truy vết, không được hiểu thành chưa duyệt |
 | TRAIN-03 Windows / PR #54 | Có preflight, lần đo ghi nhận 2,914 GiB RAM trống, bị chặn dưới cổng 4 GiB | Chưa có bằng chứng training Windows thành công trong mốc đang đối chiếu |
-| TRAIN-03 Colab / PR #55, #56 | Tooling đã merge; báo cáo T4 tạo checkpoint-1 rồi process mới chạy tới checkpoint-5 | #56 còn mở; chưa nghiệm thu chất lượng, reload adapter hoặc backup local |
+| TRAIN-03 Colab / PR #55–#58 + pilot | T4 miễn phí đã tạo checkpoint-1, resume 5 rồi resume 20; adapter validation loss 0,4265 so với base 0,6563 trên 20 validation | Chờ review PR pilot; chưa đánh giá nghiệp vụ, chưa dùng 20 smoke-test, chưa thử GGUF trên Windows |
 | Đồng chí Mark theo Word mới | Đã đối soát thiết kế với code | Chưa triển khai role registry, mailbox, voting, Speaker hay Huấn |
 
-Anh đã nói chạy trên Windows; báo cáo này chỉ xác nhận phần có bằng chứng trong repo/PR, không suy ra kết quả lượt chạy khác. CI Linux/Windows của #56 đã báo thành công; đây không phải kiểm thử chất lượng model hay đo tài nguyên trên ASUS.
+Lượt pilot dùng 80 train đúng một effective epoch (microbatch 1, gradient accumulation 4, tổng 20 optimizer step). ZIP 120.151.781 byte có SHA-256 `65ca53c0aad203a046adeeb63ecee286798e8b1ccf9bd30c8c31db97277cd024`; hash được tính và cấu trúc ZIP được kiểm ngay trong Colab. Đây chưa phải kiểm thử chất lượng nghiệp vụ hay đo runtime trên ASUS.
 
 Chi tiết nguồn, giới hạn bằng chứng và tiêu chí tiếp theo: [bảng đối soát](docs/DOI_SOAT_DONG_CHI_MARK_2026-09-14.md). PR #47 còn mở và sửa phân công/tài liệu; bản cập nhật này không thay phân công của nhánh đó. Các mục có ngày phía dưới được giữ làm lịch sử.
 

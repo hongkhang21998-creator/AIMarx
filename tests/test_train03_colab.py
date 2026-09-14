@@ -10,6 +10,9 @@ from training.colab_qwen06 import evaluate, pilot, prepare
 ROOT = Path(__file__).parents[1]
 CONFIG = json.loads((ROOT / "training/colab_qwen06/config.json").read_text())
 NOTEBOOK = json.loads((ROOT / "notebooks/TRAIN_03_Qwen3_0_6B_Colab.ipynb").read_text())
+PILOT_NOTEBOOK = json.loads(
+    (ROOT / "notebooks/TRAIN_03_Qwen3_0_6B_Pilot20_Colab.ipynb").read_text()
+)
 
 
 def test_config_locks_model_data_and_free_tier_size():
@@ -102,6 +105,32 @@ def test_pilot_is_one_effective_epoch_and_keeps_dataset_identity():
     assert "verify_inputs(source, resume_checkpoint, expected_step=5)" in source
     assert "verify_jsonl(target" in source
     assert 'pilot_config["maximum_steps"] = PILOT_STEPS' in source
+
+
+def test_pilot_notebook_pins_reviewed_code_and_orders_guarded_steps():
+    source = "\n".join(
+        "".join(cell.get("source", [])) for cell in PILOT_NOTEBOOK["cells"]
+    )
+    assert "ce188aca11c1bbaec8a0929e4172e66261ef2646" in source
+    assert "training.colab_qwen06.pilot" in source
+    assert "--expected-step', '20'" in source
+    assert "/checkpoint-20" in source
+    assert "smoke-test" in source
+    code = [
+        "".join(cell["source"])
+        for cell in PILOT_NOTEBOOK["cells"]
+        if cell["cell_type"] == "code"
+    ]
+    pilot_index = next(i for i, cell in enumerate(code) if "colab_qwen06.pilot" in cell)
+    eval_index = next(i for i, cell in enumerate(code) if "--expected-step" in cell)
+    archive_index = next(i for i, cell in enumerate(code) if "make_archive" in cell)
+    assert pilot_index < eval_index < archive_index
+    for cell in PILOT_NOTEBOOK["cells"]:
+        if cell["cell_type"] == "code":
+            compile("".join(cell["source"]), "pilot-notebook", "exec")
+            assert cell["execution_count"] is None and not cell["outputs"]
+    assert "push_to_hub" not in source and "drive.mount" not in source
+    assert "files.download" in source
 
 
 def test_evaluation_accepts_only_the_requested_step_override(tmp_path, monkeypatch):

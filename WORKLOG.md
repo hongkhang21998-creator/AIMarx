@@ -1,5 +1,24 @@
 # Nhật ký phối hợp
 
+## 2026-09-14 — TRAIN-03 pilot 20 bước trên Colab T4
+
+- Base main `85d7e97b09de2bb5a1f6b4281ea6ce7ce455feb2`; claim issue #53 trước code;
+  nhánh `codex/train03-pilot20`, code chạy tại `ce188aca11c1bbaec8a0929e4172e66261ef2646`.
+- Sở hữu runner pilot, hardening evaluator, test, notebook pilot và handoff. Không
+  dùng 20 smoke-test, không sửa runtime/agent/ledger, không tăng model hoặc mua compute.
+- Colab Tesla T4 miễn phí: tái tạo checkpoint-5 rồi resume tới checkpoint-20,
+  tương đương một lượt qua 80 train. Trên 20 validation/8.803 completion token:
+  base loss 0,6562779318; adapter loss 0,4265158024; delta -0,2297621294.
+- ZIP 120.151.781 byte, 37 entry, SHA-256
+  `65ca53c0aad203a046adeeb63ecee286798e8b1ccf9bd30c8c31db97277cd024`;
+  adapter SHA-256 `fc3e47189d2b4d470a3897867238a401cc4741b603bdbdd03e9bf25e427748ac`.
+  Cấu trúc ZIP được kiểm ngay trên Colab; trình duyệt trong app không đặt bản tải
+  xuống vào `/home/asus/Downloads`, nên chưa ghi là đã backup local/Data1000.
+- Số đo chỉ là cổng kỹ thuật. Bước tiếp theo là sinh đầu ra trên tập đánh giá tách
+  biệt và anh Khang duyệt nghiệp vụ trước mọi quyết định train thêm.
+- Kiểm tra local sau khi ghi notebook/handoff: `tests/test_train03_colab.py` đạt
+  **13 passed**; notebook JSON hợp lệ và `git diff --check` đạt.
+
 ## 2026-09-14 — TRAIN-03 reload và validation gate
 
 - Base main `cb19a8c`; claim issue #53 trước code; nhánh `codex/train03-readiness`.

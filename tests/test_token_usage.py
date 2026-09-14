@@ -170,6 +170,7 @@ def test_dashboard_filters_xss_and_empty_state(service, monkeypatch):
     client = TestClient(create_app(service), base_url="http://127.0.0.1")
     empty = client.get("/usage")
     assert empty.status_code == 200
+    assert 'data-theme="light"' in empty.text
     assert "Chưa có hoạt động" in empty.text
     assert 'href="/usage"' in client.get("/").text
     reply(monkeypatch)
@@ -185,4 +186,5 @@ def test_dashboard_filters_xss_and_empty_state(service, monkeypatch):
         assert "10.0" in page.text
         assert "Content-Security-Policy" in page.headers
     assert client.get("/usage?period=unknown").status_code == 400
+    assert 'data-theme="dark"' in client.get("/usage?theme=dark").text
     assert 'data-theme="dark"' in client.get('/usage?theme=%22%3E').text

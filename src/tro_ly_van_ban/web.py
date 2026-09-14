@@ -96,7 +96,7 @@ def create_app(service=None):
         return page(body, status)
 
     @app.get("/usage", response_class=HTMLResponse)
-    def usage(period: str = "7d", theme: str = "dark"):
+    def usage(period: str = "7d", theme: str = "light"):
         return HTMLResponse(render_dashboard(service.token_usage.summary(period), theme))
 
     @app.get("/", response_class=HTMLResponse)

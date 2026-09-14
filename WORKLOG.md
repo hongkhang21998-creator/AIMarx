@@ -1,5 +1,19 @@
 # Nhật ký phối hợp
 
+## 2026-09-14 — TRAIN-05 Qwen2.5-3B chạy thành công đến step 5
+
+- PR #71 đã xanh 4/4 và được merge theo phê duyệt trực tiếp tại
+  `ef4120d13b6ef4291b45c430f4794c83a65ba4a9`; Colab checkout đúng merge commit.
+- Tesla T4 miễn phí tạo checkpoint-1 rồi resume đến checkpoint-5, không OOM,
+  không Drive/Hub/compute trả phí. Adapter step 5 SHA-256
+  `cc9fe878570549cd5d177ace51981fb33eb0127a8e67f59db0f82937d7f40820`.
+- Trên 20 validation/8.803 completion token: base loss `0.521681446602815`,
+  adapter loss `0.47600713589239374`, chênh `-0.04567431071042127`.
+- ZIP 38 entry, 340.626.010 byte, SHA-256
+  `9df4fc4770ca010c7ed2c0b3e56273735a96e3f02db3fa1d8e7764c3cef8fbdf`;
+  đang ở runtime Colab, chưa xác nhận backup local. Chưa chạy 20 step/A-B kín;
+  kết quả này không thay thế nghiệm thu độc lập N≥120.
+
 ## 2026-09-14 — TRAIN-05 token audit Qwen2.5 yêu cầu context 2.560
 
 - Sau PR #70, lượt thử context 2.048 trên Tesla T4 miễn phí vẫn dừng trước

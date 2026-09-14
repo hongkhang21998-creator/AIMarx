@@ -1,9 +1,12 @@
 import copy
 import json
+from pathlib import Path
 
 import pytest
 
 from evals.training.train03 import blind, generate, prepare
+
+ROOT = Path(__file__).parents[1]
 
 
 def fake_inputs():
@@ -78,3 +81,20 @@ def test_generation_rejects_checkpoint_identity_mismatch(tmp_path):
     changed = dict(manifest, train_sha256="c" * 64)
     with pytest.raises(RuntimeError, match="train_sha256"):
         generate.verify_identity(changed, config, checkpoint)
+
+
+def test_colab_notebook_is_clean_pinned_and_never_trains_or_leaks_gold():
+    notebook = json.loads(
+        (ROOT / "notebooks/TRAIN_04_Qwen3_0_6B_AB_Eval_Colab.ipynb").read_text()
+    )
+    source = "\n".join("".join(cell.get("source", [])) for cell in notebook["cells"])
+    assert "5b0f4330ac5aa3ecd9394de50c504d0fbe464147" in source
+    assert source.index("train03.prepare") < source.index("--mode', 'base'")
+    assert source.index("--mode', 'adapter'") < source.index("train03.blind")
+    assert "gold-after-review.jsonl" in source and "open-after-review" in source
+    assert "training.colab_qwen06.train" not in source
+    assert "push_to_hub" not in source and "drive.mount" not in source
+    for cell in notebook["cells"]:
+        if cell["cell_type"] == "code":
+            compile("".join(cell["source"]), "train04-notebook", "exec")
+            assert cell["execution_count"] is None and not cell["outputs"]

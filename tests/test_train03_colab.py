@@ -16,6 +16,7 @@ def test_config_locks_model_data_and_free_tier_size():
     assert CONFIG["model_id"] == "Qwen/Qwen3-0.6B"
     assert CONFIG["model_revision"] == "c1899de289a04d12100db370d81485cdf75e47ca"
     assert CONFIG["enable_thinking"] is False
+    assert CONFIG["max_length"] == 4096
     assert CONFIG["maximum_steps"] == 5
     assert CONFIG["minimum_gpu_memory_gib"] >= 12
     assert (CONFIG["train_count"], CONFIG["validation_count"]) == (80, 20)

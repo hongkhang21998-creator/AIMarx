@@ -74,7 +74,7 @@ Khác biệt so với Linux, đã xử lý trong mã:
 - `PYTHONUTF8=1` là **bắt buộc** khi stdout bị chuyển hướng ra file hoặc chạy dưới dạng dịch vụ, nếu không tiếng Việt gây `UnicodeEncodeError` (cp1252). `run-local.ps1` đã đặt sẵn.
 - Tạo symlink cần quyền `SeCreateSymbolicLinkPrivilege` nên test symlink tự bỏ qua; test junction thay thế để vẫn phủ hàng rào chặn thoát thư mục.
 
-Ollama cho Windows phải cài riêng: gói `.tar.zst` trong `.runtime/downloads` là **bản Linux**. Model GGUF dùng chung được giữa hai hệ — sao chép `.runtime/models` sang là đủ, không cần tải lại.
+Ollama cho Windows phải cài riêng: gói `.tar.zst` trong `.runtime/downloads` là **bản Linux**. Model GGUF dùng chung được giữa hai hệ, nhưng Ollama native trên Windows mặc định lưu model ở `%USERPROFILE%\.ollama\models`. Launcher `scripts/run-ollama.ps1` giữ nguyên biến `OLLAMA_MODELS` nếu anh đã đặt; nếu chưa đặt thì dùng đúng thư mục mặc định này. Chỉ khi muốn lưu model trong thư mục repository mới cần đặt `OLLAMA_MODELS` rõ ràng.
 
 ## Dữ liệu và kiểm soát
 

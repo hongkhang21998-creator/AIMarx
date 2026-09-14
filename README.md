@@ -1,5 +1,19 @@
 # AIMarx
 
+## Quyết định mới nhất 14/09/2026 — một agent, SLM khoảng 3B + API
+
+Theo quyết định của anh Khang: **AIMarx có đúng một agent điều phối, dùng một SLM local khoảng 3 tỷ tham số; chức năng chính là phân loại và chọn luồng cố định. LLM lớn xử lý văn bản qua API; chương trình kiểm tra và đóng gói để anh duyệt.** Số tham số thuộc model, không phải toàn bộ agent.
+
+Luồng đích: nhập/đọc nguồn → SLM phân loại → backend kiểm quyền và chọn API đã cấu hình → LLM xử lý văn bản → kiểm kết quả → đóng gói DOCX/phiếu và trình duyệt.
+
+- Một worker xử lý tuần tự; API là dịch vụ được gọi, không phải agent tự trị. Không xây swarm, Big Mark cùng các agent Văn/Kiểm/Gói/Tìm/Tri/Huấn, mailbox liên-agent hoặc hội đồng bỏ phiếu.
+- Kiểm tra và đóng gói là các bước phần mềm trong cùng workflow. Quy tắc kiểm schema, nguồn, trường bắt buộc, phiên bản và hash là hàng rào chính; SLM chỉ bổ sung nhận xét. Kiểm nguồn chữ không chứng minh đúng ngữ nghĩa; ca khó cần người duyệt hoặc lời gọi API kiểm tra có giới hạn.
+- Backend giữ trạng thái SQLite, checkpoint nghiệp vụ, quyền dữ liệu, ngân sách, timeout và retry có giới hạn. SLM không tự cấp quyền hoặc mở agent mới. Lỗi API phải giữ tác vụ để tiếp tục, không báo hoàn thành giả.
+- Quyết định kiến trúc cho phép thiết kế đường API, không tự gửi hồ sơ thật hoặc phát sinh chi phí. Tái sử dụng hợp đồng PSC-01 và quyền đã cấp đúng phạm vi; duyệt sản phẩm cuối vẫn tách khỏi quyền gửi dữ liệu.
+- Mục tiêu local khoảng 3B, ưu tiên lượng tử hóa 4-bit và context ngắn đủ phân loại; chưa cam kết hiệu năng ASUS trước benchmark RAM đỉnh, p50/p95 và chất lượng. Máy local chạy suy luận; không đặt yêu cầu train 3B trên máy yếu.
+
+Mục này thay các chỉ đạo kiến trúc swarm/biểu quyết và giới hạn chỉ 0.6B trong ghi chép cũ bên dưới. Các mục có ngày trước quyết định này được giữ để truy vết, không phải backlog bắt buộc. Đây là quyết định thiết kế; chưa tuyên bố runtime API/3B đã triển khai.
+
 ## Trạng thái đối chiếu ngày 14/09/2026
 
 Mốc nhận việc: main `85d7e97`. **Đã có MVP xử lý văn bản, bộ 120 mẫu được anh Khang duyệt và pilot LoRA Qwen3-0.6B trên Colab T4 tới step 20. Validation loss giảm từ 0,6563 (base) xuống 0,4265 (adapter), nhưng chưa có nghiệm thu nghiệp vụ hoặc hệ thống multi-agent Đồng chí Mark hoàn chỉnh.**

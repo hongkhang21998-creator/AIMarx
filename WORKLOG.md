@@ -1,5 +1,17 @@
 # Nhật ký phối hợp
 
+## 2026-09-14 — TRAIN-03 reload và validation gate
+
+- Base main `cb19a8c`; claim issue #53 trước code; nhánh `codex/train03-readiness`.
+- Thêm kiểm manifest/hash, reload adapter inference-only và so sánh completion loss
+  base/adapter trên 20 validation; notebook pin đúng commit chứa công cụ.
+- Colab T4: checkpoint-5 reload đạt; base loss 0,6562779318, adapter loss
+  0,5426937412 trên 8.803 completion token. Đây là cổng kỹ thuật, chưa phải duyệt
+  nghiệp vụ hoặc quyền tự tăng step.
+- Test tập trung: 7 passed; JSON notebook hợp lệ và `git diff --check` đạt. Lượt
+  full suite được khởi chạy nhưng không trả kết quả cuối trong phiên công cụ nên
+  không ghi là đạt. Anh Khang review và merge PR.
+
 ## 2026-09-14 — cập nhật trạng thái và đối soát Word Đồng chí Mark
 
 - Base main `b4bcad080bb65b9d293f26e7b6289f124561a3ec`; nhánh `codex/docs-mark-reconciliation`. Claim trước sửa trên issue #53, comment 5657533918.

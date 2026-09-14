@@ -6,6 +6,7 @@ import json
 import math
 from pathlib import Path
 
+from training.colab_qwen06.prepare import CONFIG, verify_jsonl
 from training.colab_qwen06.train import CompletionCollator, encode_row, load_rows, require_colab_gpu
 
 
@@ -18,15 +19,40 @@ def verify_checkpoint(checkpoint: Path) -> dict:
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     if manifest.get("global_step") != 5:
         raise RuntimeError("checkpoint is not the approved five-step smoke artifact")
+    files = manifest.get("files", {})
+    if not isinstance(files, dict) or not {"adapter_config.json", "adapter_model.safetensors", "trainer_state.json"} <= files.keys():
+        raise RuntimeError("checkpoint manifest missing required files")
     mismatches = []
-    for name, expected in manifest.get("files", {}).items():
+    for name, expected in files.items():
+        if not isinstance(name, str) or Path(name).name != name or "/" in name or "\\" in name or name in {".", ".."}:
+            raise RuntimeError("invalid checkpoint filename")
         target = checkpoint / name
+        if target.is_symlink():
+            raise RuntimeError("checkpoint symlinks are not allowed")
         actual = sha256(target) if target.is_file() else None
         if actual != expected:
             mismatches.append({"file": name, "expected": expected, "actual": actual})
     if mismatches:
         raise RuntimeError(f"checkpoint hash mismatch: {mismatches}")
+    state = json.loads((checkpoint / "trainer_state.json").read_text(encoding="utf-8"))
+    if state.get("global_step") != manifest["global_step"]:
+        raise RuntimeError("checkpoint state step mismatch")
     return manifest
+
+
+def verify_inputs(data: Path, checkpoint: Path) -> tuple[dict, dict]:
+    config = json.loads((data / "config.json").read_text(encoding="utf-8"))
+    if config != json.loads(CONFIG.read_text(encoding="utf-8")):
+        raise RuntimeError("data config differs from pinned configuration")
+    verify_jsonl(data / "validation.jsonl", config["validation_count"], config["validation_sha256"])
+    manifest = verify_checkpoint(checkpoint)
+    for key in ("model_id", "model_revision", "train_sha256", "validation_sha256"):
+        if manifest.get(key) != config[key]:
+            raise RuntimeError(f"checkpoint identity mismatch: {key}")
+    adapter_config = json.loads((checkpoint / "adapter_config.json").read_text(encoding="utf-8"))
+    if adapter_config.get("base_model_name_or_path") != config["model_id"]:
+        raise RuntimeError("adapter base model mismatch")
+    return config, manifest
 
 
 def completion_loss(model, rows: list[dict], collator) -> dict:
@@ -50,6 +76,8 @@ def completion_loss(model, rows: list[dict], collator) -> dict:
             tokens = int(labels.ne(-100).sum().item())
             total_nll += float(nll.item())
             total_tokens += tokens
+    if total_tokens == 0 or not math.isfinite(total_nll):
+        raise RuntimeError("invalid evaluation loss or empty completion tokens")
     loss = total_nll / total_tokens
     return {"loss": loss, "perplexity": math.exp(min(loss, 20)), "completion_tokens": total_tokens}
 
@@ -65,13 +93,8 @@ def main() -> None:
     from peft import PeftModel
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
-    config = json.loads((args.data / "config.json").read_text(encoding="utf-8"))
+    config, manifest = verify_inputs(args.data, args.checkpoint)
     hardware = require_colab_gpu(config)
-    manifest = verify_checkpoint(args.checkpoint)
-    if manifest["model_id"] != config["model_id"] or manifest["model_revision"] != config["model_revision"]:
-        raise RuntimeError("checkpoint model identity does not match config")
-    if manifest["validation_sha256"] != config["validation_sha256"]:
-        raise RuntimeError("checkpoint validation identity does not match config")
 
     tokenizer = AutoTokenizer.from_pretrained(
         config["model_id"], revision=config["model_revision"], trust_remote_code=False

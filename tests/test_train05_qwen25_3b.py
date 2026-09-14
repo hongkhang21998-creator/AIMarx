@@ -7,6 +7,9 @@ from training.colab_qwen25_3b import prepare
 ROOT = Path(__file__).parents[1]
 PACKAGE = ROOT / "training/colab_qwen25_3b"
 CONFIG = json.loads((PACKAGE / "config.json").read_text())
+NOTEBOOK = json.loads(
+    (ROOT / "notebooks/TRAIN_05_Qwen2_5_3B_QLoRA_Colab.ipynb").read_text()
+)
 
 
 def test_config_pins_three_billion_parameter_qlora_trial():
@@ -45,3 +48,18 @@ def test_evaluator_imports_only_the_three_billion_parameter_package():
     source = (PACKAGE / "evaluate.py").read_text()
     assert "training.colab_qwen25_3b" in source
     assert "training.colab_qwen06" not in source
+
+
+def test_notebook_pins_runner_and_stops_at_human_gate():
+    source = "\n".join("".join(cell.get("source", [])) for cell in NOTEBOOK["cells"])
+    assert "2b17afdd1bc31c5100bb89ccd3d1f9e66dd2e1e0" in source
+    assert "--stop-after', '1'" in source
+    assert "APPROVE_RESUME_TO_5 = False" in source
+    assert source.index("checkpoint-1") < source.index("APPROVE_RESUME_TO_5")
+    assert source.index("APPROVE_RESUME_TO_5") < source.index("checkpoint-5")
+    assert "checkpoint-20" not in source
+    assert "drive.mount" not in source and "push_to_hub" not in source
+    for cell in NOTEBOOK["cells"]:
+        if cell["cell_type"] == "code":
+            compile("".join(cell["source"]), "train05-notebook", "exec")
+            assert cell["execution_count"] is None and not cell["outputs"]

@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from training.colab_qwen06 import evaluate, prepare
+from training.colab_qwen06 import evaluate, pilot, prepare
 
 ROOT = Path(__file__).parents[1]
 CONFIG = json.loads((ROOT / "training/colab_qwen06/config.json").read_text())
@@ -93,6 +93,42 @@ def test_evaluation_rejects_changed_validation_before_checkpoint_loading(tmp_pat
     (tmp_path / "validation.jsonl").write_text('{"prompt":"changed","completion":"changed"}\n')
     with pytest.raises(RuntimeError, match="checksum"):
         evaluate.verify_inputs(tmp_path, tmp_path / "missing-checkpoint")
+
+
+def test_pilot_is_one_effective_epoch_and_keeps_dataset_identity():
+    assert pilot.PILOT_STEPS == 20
+    assert pilot.PILOT_STEPS * CONFIG["micro_batch_size"] * CONFIG["gradient_accumulation_steps"] == CONFIG["train_count"]
+    source = (ROOT / "training/colab_qwen06/pilot.py").read_text()
+    assert "verify_inputs(source, resume_checkpoint, expected_step=5)" in source
+    assert "verify_jsonl(target" in source
+    assert 'pilot_config["maximum_steps"] = PILOT_STEPS' in source
+
+
+def test_evaluation_accepts_only_the_requested_step_override(tmp_path, monkeypatch):
+    data = tmp_path / "data"
+    data.mkdir()
+    config = dict(CONFIG)
+    config["maximum_steps"] = 20
+    (data / "config.json").write_text(json.dumps(config))
+    validation = data / "validation.jsonl"
+    validation.write_bytes(b"validation")
+    monkeypatch.setattr(evaluate, "verify_jsonl", lambda *args: None)
+    monkeypatch.setattr(evaluate, "verify_checkpoint", lambda _path, step: {
+        "global_step": step,
+        "model_id": config["model_id"],
+        "model_revision": config["model_revision"],
+        "train_sha256": config["train_sha256"],
+        "validation_sha256": config["validation_sha256"],
+        "files": {},
+    })
+    checkpoint = tmp_path / "checkpoint"
+    checkpoint.mkdir()
+    (checkpoint / "adapter_config.json").write_text(json.dumps({"base_model_name_or_path": config["model_id"]}))
+    assert evaluate.verify_inputs(data, checkpoint, expected_step=20)[0]["maximum_steps"] == 20
+    config["learning_rate"] *= 2
+    (data / "config.json").write_text(json.dumps(config))
+    with pytest.raises(RuntimeError, match="pinned configuration"):
+        evaluate.verify_inputs(data, checkpoint, expected_step=20)
 
 
 def test_evaluation_compares_base_and_reloaded_adapter_without_training():

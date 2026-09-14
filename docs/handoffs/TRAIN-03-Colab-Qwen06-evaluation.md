@@ -22,3 +22,16 @@ pilot dài; cần thiết kế evaluation sinh đầu ra và anh duyệt trướ
 
 Không mua compute, không mount Drive, không push model lên cloud và không export
 20 smoke-test. Phiên Colab hiển thị 0 compute unit và T4 miễn phí.
+
+## Hoàn thiện PR sau đối soát
+
+Đã hòa giải với main `f140d21` chứa notebook lưu từ Colab. Notebook được đưa về
+trạng thái chưa chạy; kết quả số giữ ở handoff và lịch sử Git. Pin code mới
+`6cc93935e68d4dda263a935f78704c657db610e8` bổ sung kiểm file validation thực tế,
+config cố định, identity checkpoint và file bắt buộc trước nạp model. Phép tính
+loss giữ nguyên so với lượt T4 ghi trên; không gọi kết quả cũ là lượt GPU mới.
+Thứ tự notebook: chuẩn bị → step 1 → resume step 5 → evaluation → ZIP.
+
+Hash manifest chứng minh tính toàn vẹn so với manifest, không thay chữ ký hoặc
+nguồn tin cậy. Chỉ dùng checkpoint do quy trình đã biết tạo ra. Giảm loss trên
+20 mẫu chưa bảo đảm câu trả lời đúng nghiệp vụ hoặc tổng quát hóa tốt.

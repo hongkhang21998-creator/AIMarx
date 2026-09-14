@@ -1,0 +1,24 @@
+{
+  "adapter": {
+    "completion_tokens": 8803,
+    "loss": 0.5426937412243329,
+    "perplexity": 1.7206355720851814
+  },
+  "adapter_minus_base_loss": -0.11358419061045644,
+  "adapter_sha256": "df47b36bb75edf8237aa9effe81c0e10bc22b993f48fe9bccbc078e093173a48",
+  "base": {
+    "completion_tokens": 8803,
+    "loss": 0.6562779318347893,
+    "perplexity": 1.9276042909401991
+  },
+  "checkpoint_global_step": 5,
+  "dtype": "torch.float16",
+  "hardware": {
+    "disk_free_gib": 63.38,
+    "memory_gib": 14.563,
+    "name": "Tesla T4"
+  },
+  "status": "adapter_better_on_validation",
+  "validation_count": 20,
+  "validation_sha256": "8d3c43d3d69df8c7c58cba9733e76b1619d77629a144fae946468c8c56ad1741"
+}

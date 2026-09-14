@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from training.colab_qwen06 import prepare
+from training.colab_qwen06 import evaluate, prepare
 
 ROOT = Path(__file__).parents[1]
 CONFIG = json.loads((ROOT / "training/colab_qwen06/config.json").read_text())
@@ -27,6 +27,13 @@ def test_notebook_has_two_process_resume_and_no_paid_or_cloud_push():
     assert "--stop-after', '1'" in source
     assert "--resume-from" in source and "checkpoint-1" in source
     assert "checkpoint-5" in source
+    code = ["".join(c["source"]) for c in NOTEBOOK["cells"] if c["cell_type"] == "code"]
+    assert next(i for i, c in enumerate(code) if "--resume-from" in c) < next(i for i, c in enumerate(code) if "training.colab_qwen06.evaluate" in c) < next(i for i, c in enumerate(code) if "make_archive" in c)
+    for cell in NOTEBOOK["cells"]:
+        if cell["cell_type"] == "code":
+            compile("".join(cell["source"]), "notebook", "exec")
+            assert cell["execution_count"] is None and not cell["outputs"]
+    assert "training.colab_qwen06.evaluate" in source
     assert "push_to_hub" not in source and "drive.mount" not in source
     assert "files.download" in source
 
@@ -54,3 +61,44 @@ def test_training_source_disables_thinking_and_forbids_truncation():
     assert "no truncation allowed" in source
     assert 'save_only_model=False' in source
     assert 'resume_from_checkpoint=' in source
+
+
+def test_evaluation_verifies_every_manifest_file(tmp_path):
+    checkpoint = tmp_path / "checkpoint-5"
+    checkpoint.mkdir()
+    adapter = checkpoint / "adapter_model.safetensors"
+    adapter.write_bytes(b"adapter")
+    (checkpoint / "adapter_config.json").write_text("{}")
+    (checkpoint / "trainer_state.json").write_text('{"global_step": 5}')
+    manifest = {
+        "global_step": 5,
+        "files": {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in checkpoint.iterdir()},
+    }
+    (checkpoint / "aimarx-manifest.json").write_text(json.dumps(manifest))
+    assert evaluate.verify_checkpoint(checkpoint) == manifest
+    adapter.write_bytes(b"changed")
+    with pytest.raises(RuntimeError, match="hash mismatch"):
+        evaluate.verify_checkpoint(checkpoint)
+
+
+@pytest.mark.parametrize("files", [{}, {"../escape": "0" * 64}])
+def test_evaluation_rejects_incomplete_manifest(tmp_path, files):
+    (tmp_path / "aimarx-manifest.json").write_text(json.dumps({"global_step": 5, "files": files}))
+    with pytest.raises(RuntimeError, match="missing required"):
+        evaluate.verify_checkpoint(tmp_path)
+
+
+def test_evaluation_rejects_changed_validation_before_checkpoint_loading(tmp_path):
+    (tmp_path / "config.json").write_text(json.dumps(CONFIG))
+    (tmp_path / "validation.jsonl").write_text('{"prompt":"changed","completion":"changed"}\n')
+    with pytest.raises(RuntimeError, match="checksum"):
+        evaluate.verify_inputs(tmp_path, tmp_path / "missing-checkpoint")
+
+
+def test_evaluation_compares_base_and_reloaded_adapter_without_training():
+    source = (ROOT / "training/colab_qwen06/evaluate.py").read_text()
+    assert "PeftModel.from_pretrained" in source
+    assert "is_trainable=False" in source
+    assert "torch.inference_mode()" in source
+    assert 'reduction="sum"' in source
+    assert "trainer.train" not in source

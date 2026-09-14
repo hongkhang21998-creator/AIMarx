@@ -2,10 +2,10 @@
 
 ## Trạng thái đối chiếu ngày 14/09/2026
 
-Mốc kiểm tra: main `b4bcad0`. **Đã có MVP xử lý văn bản và bộ 120 mẫu được anh Khang duyệt; đã có báo cáo smoke LoRA Qwen3-0.6B trên Colab T4 tới step 5. Chưa có hệ thống multi-agent Đồng chí Mark hoàn chỉnh hoặc SLM được nghiệm thu nghiệp vụ.**
+Mốc nhận việc: main `85d7e97`. **Đã có MVP xử lý văn bản, bộ 120 mẫu được anh Khang duyệt và pilot LoRA Qwen3-0.6B trên Colab T4 tới step 20. Validation loss giảm từ 0,6563 (base) xuống 0,4265 (adapter), nhưng chưa có nghiệm thu nghiệp vụ hoặc hệ thống multi-agent Đồng chí Mark hoàn chỉnh.**
 
 - PR #50/#52: công cụ duyệt/export và snapshot 120 approved, chia 80 train / 20 validation / 20 smoke-test. Quyền train/export được cấp riêng; 20 smoke đã biết không phải test mù.
-- PR #55 đã merge tooling Colab. [PR #56](https://github.com/hongkhang21998-creator/AIMarx/pull/56) vẫn mở: cấu hình context 4096 và báo cáo chạy nằm ở nhánh đó, chưa thuộc main đang đối chiếu.
+- PR #55–#58 đã merge tooling, lượt smoke và cổng reload/evaluation Colab. Pilot một effective epoch (80 train, 20 optimizer step) đã chạy miễn phí trên T4; artifact và số đo được ghi trong handoff, chờ PR hiện tại do anh Khang review/merge.
 - Tài liệu Word mới định nghĩa Big Mark, 5 vai trò bỏ phiếu và Mark Huấn. Hiện chưa có mailbox, hàng đợi bền vững, biểu quyết tuần tự hoặc phục hồi workflow này.
 
 Xem [đối soát Word và bằng chứng](docs/DOI_SOAT_DONG_CHI_MARK_2026-09-14.md), [tiến độ](TIEN_DO.md) và [kế hoạch tiếp theo](KE_HOACH_AI_AGENT.md). Thông tin “chưa train/0 approved” trong ghi chép cũ là trạng thái lịch sử.

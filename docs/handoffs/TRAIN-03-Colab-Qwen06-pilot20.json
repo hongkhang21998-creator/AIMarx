@@ -1,0 +1,31 @@
+{
+  "adapter": {
+    "completion_tokens": 8803,
+    "loss": 0.4265158023940397,
+    "perplexity": 1.5319107346086052
+  },
+  "adapter_minus_base_loss": -0.22976212944074964,
+  "adapter_sha256": "fc3e47189d2b4d470a3897867238a401cc4741b603bdbdd03e9bf25e427748ac",
+  "artifact": {
+    "bytes": 120151781,
+    "entries": 37,
+    "name": "AIMarx-Qwen3-0.6B-LoRA-pilot-step20.zip",
+    "sha256": "65ca53c0aad203a046adeeb63ecee286798e8b1ccf9bd30c8c31db97277cd024"
+  },
+  "base": {
+    "completion_tokens": 8803,
+    "loss": 0.6562779318347893,
+    "perplexity": 1.9276042909401991
+  },
+  "checkpoint_global_step": 20,
+  "code_commit": "ce188aca11c1bbaec8a0929e4172e66261ef2646",
+  "dtype": "torch.float16",
+  "hardware": {
+    "disk_free_gib": 63.236,
+    "memory_gib": 14.563,
+    "name": "Tesla T4"
+  },
+  "status": "adapter_better_on_validation",
+  "validation_count": 20,
+  "validation_sha256": "8d3c43d3d69df8c7c58cba9733e76b1619d77629a144fae946468c8c56ad1741"
+}

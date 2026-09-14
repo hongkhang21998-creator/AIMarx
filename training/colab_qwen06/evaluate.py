@@ -14,11 +14,11 @@ def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def verify_checkpoint(checkpoint: Path) -> dict:
+def verify_checkpoint(checkpoint: Path, expected_step: int = 5) -> dict:
     manifest_path = checkpoint / "aimarx-manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    if manifest.get("global_step") != 5:
-        raise RuntimeError("checkpoint is not the approved five-step smoke artifact")
+    if manifest.get("global_step") != expected_step:
+        raise RuntimeError(f"checkpoint is not the expected step-{expected_step} artifact")
     files = manifest.get("files", {})
     if not isinstance(files, dict) or not {"adapter_config.json", "adapter_model.safetensors", "trainer_state.json"} <= files.keys():
         raise RuntimeError("checkpoint manifest missing required files")
@@ -40,12 +40,15 @@ def verify_checkpoint(checkpoint: Path) -> dict:
     return manifest
 
 
-def verify_inputs(data: Path, checkpoint: Path) -> tuple[dict, dict]:
+def verify_inputs(data: Path, checkpoint: Path, expected_step: int = 5) -> tuple[dict, dict]:
     config = json.loads((data / "config.json").read_text(encoding="utf-8"))
-    if config != json.loads(CONFIG.read_text(encoding="utf-8")):
+    canonical = json.loads(CONFIG.read_text(encoding="utf-8"))
+    normalized = dict(config)
+    normalized["maximum_steps"] = canonical["maximum_steps"]
+    if normalized != canonical or config.get("maximum_steps") != expected_step:
         raise RuntimeError("data config differs from pinned configuration")
     verify_jsonl(data / "validation.jsonl", config["validation_count"], config["validation_sha256"])
-    manifest = verify_checkpoint(checkpoint)
+    manifest = verify_checkpoint(checkpoint, expected_step)
     for key in ("model_id", "model_revision", "train_sha256", "validation_sha256"):
         if manifest.get(key) != config[key]:
             raise RuntimeError(f"checkpoint identity mismatch: {key}")
@@ -86,6 +89,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--data", type=Path, default=Path("colab_data"))
     parser.add_argument("--checkpoint", type=Path, required=True)
+    parser.add_argument("--expected-step", type=int, default=5)
     parser.add_argument("--output", type=Path, default=Path("evaluation.json"))
     args = parser.parse_args()
 
@@ -93,7 +97,7 @@ def main() -> None:
     from peft import PeftModel
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
-    config, manifest = verify_inputs(args.data, args.checkpoint)
+    config, manifest = verify_inputs(args.data, args.checkpoint, args.expected_step)
     hardware = require_colab_gpu(config)
 
     tokenizer = AutoTokenizer.from_pretrained(

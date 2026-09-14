@@ -26,3 +26,11 @@ model and then reloads the adapter with PEFT in inference-only mode. It reports
 completion-only loss and perplexity over the 20 approved validation records.
 This comparison is a technical gate for a longer pilot; it is not a human
 administrative-quality review and must not use the 20 smoke-test records.
+
+For the guarded pilot, use
+`notebooks/TRAIN_03_Qwen3_0_6B_Pilot20_Colab.ipynb`. It recreates the verified
+step-5 checkpoint, copies the same approved 80/20 split with hashes, then resumes
+to step 20. With microbatch 1 and gradient accumulation 4, 20 optimizer steps
+consume 80 training examples: one effective epoch. The evaluator requires an
+exact step-20 checkpoint. Any later extension requires a separate reviewed
+decision; the notebook does not train on or evaluate the 20 smoke-test records.

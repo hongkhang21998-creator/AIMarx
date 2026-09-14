@@ -10,7 +10,8 @@
 | TRAIN-01 / PR #48 | 36 ca reference proposal-v2 và bằng chứng baseline | Reference/AI review không thay duyệt nghiệp vụ |
 | TRAIN-02 / PR #50, #52 | 120 mẫu approved ở snapshot riêng; quyền train/export; split audit #46 đã tích hợp | Root draft giữ nguyên để truy vết, không được hiểu thành chưa duyệt |
 | TRAIN-03 Windows / PR #54 | Có preflight, lần đo ghi nhận 2,914 GiB RAM trống, bị chặn dưới cổng 4 GiB | Chưa có bằng chứng training Windows thành công trong mốc đang đối chiếu |
-| TRAIN-03 Colab / PR #55–#58 + pilot | T4 miễn phí đã tạo checkpoint-1, resume 5 rồi resume 20; adapter validation loss 0,4265 so với base 0,6563 trên 20 validation | Chờ review PR pilot; chưa đánh giá nghiệp vụ, chưa dùng 20 smoke-test, chưa thử GGUF trên Windows |
+| TRAIN-03 Colab / PR #55–#58, #64 | T4 miễn phí đã tạo checkpoint-1, resume 5 rồi resume 20; adapter validation loss 0,4265 so với base 0,6563 trên 20 validation; pilot đã merge | Chưa đánh giá đầu ra nghiệp vụ, chưa chạy 20 smoke-test, chưa thử GGUF trên Windows |
+| TRAIN-04 / issue #65 | Đã chuẩn bị hợp đồng input không rò đáp án, sinh base/adapter cùng cấu hình và gói A/B ẩn danh | Chờ merge công cụ rồi chạy 20 smoke công khai; nghiệm thu cuối vẫn cần bộ kín N≥120 được duyệt riêng |
 | Đồng chí Mark theo Word mới | Đã đối soát thiết kế với code | Chưa triển khai role registry, mailbox, voting, Speaker hay Huấn |
 
 Lượt pilot dùng 80 train đúng một effective epoch (microbatch 1, gradient accumulation 4, tổng 20 optimizer step). ZIP 120.151.781 byte có SHA-256 `65ca53c0aad203a046adeeb63ecee286798e8b1ccf9bd30c8c31db97277cd024`; hash được tính và cấu trúc ZIP được kiểm ngay trong Colab. Đây chưa phải kiểm thử chất lượng nghiệp vụ hay đo runtime trên ASUS.

@@ -1,5 +1,19 @@
 # Nhật ký phối hợp
 
+## 2026-09-14 — chuẩn bị TRAIN-04 đánh giá đầu ra sau pilot
+
+- PR #64 đã merge tại main `d3aa1eb217c43b45feb875c4b9728a45ec8bcd4b`;
+  tạo issue #65 và nhánh `codex/train03-domain-eval`, ghi file sở hữu trước code.
+- 20 smoke-test trong repo là tập công khai, không gọi là test mù. Công cụ chỉ đưa
+  bốn trường allowlist vào model, sinh base/adapter greedy cùng cấu hình và tráo A/B
+  theo seed; gold/reveal nằm ở gói riêng chỉ mở sau khi khóa nhận xét.
+- Không train/tune, không sửa TRAIN-02/trainer/runtime/ledger, không upload/Drive/chi
+  phí. Nghiệm thu chuyên ngành còn cần bộ kín độc lập N≥120 do anh Khang duyệt riêng.
+- Commit công cụ pin cho notebook: `5b0f4330ac5aa3ecd9394de50c504d0fbe464147`.
+- Kiểm tra local: TRAIN-03 + TRAIN-04 **23 passed**; export đúng 20 input có
+  SHA-256 `b6dd7f287abdd6e37a2854f2994c2c212ffb5c0da8392bc17a31a735412eb719`;
+  notebook JSON hợp lệ và `git diff --check` đạt. Chưa chạy inference 40 lượt.
+
 ## 2026-09-14 — TRAIN-03 pilot 20 bước trên Colab T4
 
 - Base main `85d7e97b09de2bb5a1f6b4281ea6ce7ce455feb2`; claim issue #53 trước code;

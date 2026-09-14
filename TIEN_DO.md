@@ -1,5 +1,14 @@
 # Tiến độ từng ngày
 
+## Kế hoạch còn lại — A0 đến A7 (14/09/2026)
+
+Xem [kế hoạch hiện hành](KE_HOACH_AI_AGENT.md): A0 kiểm kê → A1 schema → A2 benchmark 3B → A3 gateway/token → A4 MCP/API → A5 kiểm/Word → A6 quản lý việc/phục hồi → A7 nghiệm thu ASUS. A3 mock có thể chuẩn bị sau A1 trong khi chờ benchmark.
+
+Cả tám gói đang ở trạng thái **chưa thực hiện theo tiêu chí mới**; các thành phần có sẵn sẽ được A0 xác nhận để tái sử dụng. Không reset thành quả MVP hoặc TRAIN-05. Lập kế hoạch và merge tài liệu không hoàn thành các gói runtime. Ước lượng 10–17 buổi có điều kiện, cập nhật sau kiểm kê; 40% trước đó không phải số đo nghiệm thu.
+
+Quyền tự merge/deploy đã được anh cấp trong phiên; triển khai ASUS vẫn cần kết nối máy. Theo dõi bằng bằng chứng từng gói, không số lượng PR.
+
+
 ## Quyết định mới nhất 14/09/2026 — một agent, SLM khoảng 3B + API
 
 Theo quyết định của anh Khang: **AIMarx có đúng một agent điều phối, dùng một SLM local khoảng 3 tỷ tham số; chức năng chính là phân loại và chọn luồng cố định. LLM lớn xử lý văn bản qua API; chương trình kiểm tra và đóng gói để anh duyệt.** Số tham số thuộc model, không phải toàn bộ agent.

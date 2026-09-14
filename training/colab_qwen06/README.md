@@ -20,3 +20,9 @@ Windows project and Data1000 only after verifying its embedded hashes.
 The five-step smoke proves the data, model, LoRA and resume pipeline operates.
 It does not establish administrative-domain quality.
 
+After downloading and verifying the checkpoint, run `evaluate.py` on the same
+Colab T4. It checks every file against the embedded manifest, loads the base
+model and then reloads the adapter with PEFT in inference-only mode. It reports
+completion-only loss and perplexity over the 20 approved validation records.
+This comparison is a technical gate for a longer pilot; it is not a human
+administrative-quality review and must not use the 20 smoke-test records.

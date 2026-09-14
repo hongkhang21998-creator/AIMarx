@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from training.colab_qwen06 import prepare
+from training.colab_qwen06 import evaluate, prepare
 
 ROOT = Path(__file__).parents[1]
 CONFIG = json.loads((ROOT / "training/colab_qwen06/config.json").read_text())
@@ -54,3 +54,28 @@ def test_training_source_disables_thinking_and_forbids_truncation():
     assert "no truncation allowed" in source
     assert 'save_only_model=False' in source
     assert 'resume_from_checkpoint=' in source
+
+
+def test_evaluation_verifies_every_manifest_file(tmp_path):
+    checkpoint = tmp_path / "checkpoint-5"
+    checkpoint.mkdir()
+    adapter = checkpoint / "adapter_model.safetensors"
+    adapter.write_bytes(b"adapter")
+    manifest = {
+        "global_step": 5,
+        "files": {adapter.name: hashlib.sha256(adapter.read_bytes()).hexdigest()},
+    }
+    (checkpoint / "aimarx-manifest.json").write_text(json.dumps(manifest))
+    assert evaluate.verify_checkpoint(checkpoint) == manifest
+    adapter.write_bytes(b"changed")
+    with pytest.raises(RuntimeError, match="hash mismatch"):
+        evaluate.verify_checkpoint(checkpoint)
+
+
+def test_evaluation_compares_base_and_reloaded_adapter_without_training():
+    source = (ROOT / "training/colab_qwen06/evaluate.py").read_text()
+    assert "PeftModel.from_pretrained" in source
+    assert "is_trainable=False" in source
+    assert "torch.inference_mode()" in source
+    assert 'reduction="sum"' in source
+    assert "trainer.train" not in source

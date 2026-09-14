@@ -9,6 +9,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from .model import ModelUnavailable
 from .service import Conflict, NotFound, Service
 from .parser import MAX_BYTES
+from .token_dashboard import render_dashboard
 
 
 def create_app(service=None):
@@ -77,7 +78,7 @@ def create_app(service=None):
         return ''.join('<p class="warn"><b>Cảnh báo môi trường:</b> ' + esc(w) + '</p>' for w in getattr(service, "warnings", []))
 
     def page(body, status=200):
-        return HTMLResponse('<!doctype html><html lang="vi"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>AIMarx — Trợ lý văn bản</title><style>body{font:17px system-ui;max-width:1100px;margin:30px auto;padding:20px;background:#f5f7fa;color:#182b3a}textarea{width:100%;min-height:320px}pre{white-space:pre-wrap}button,input{padding:9px;margin:5px}article{background:white;padding:20px;margin:15px 0;border:1px solid #ccd}a{color:#075e8f}.warn{background:#fff3cd;border:1px solid #e0b000;padding:12px;margin:12px 0}</style><a href="/">Kho tài liệu</a> · <a href="/tasks">Sổ công việc</a><h1>AIMarx</h1><p>Trợ lý văn bản chạy trên máy của bạn: mọi dữ kiện có nguồn, mọi quyết định do bạn duyệt.</p><p>Chế độ: <strong>' + esc(service.mode) + '</strong>. Phiếu thử nghiệm; chưa phải mẫu văn bản hành chính được xác nhận.</p>' + warn_banner() + body + '</html>', status_code=status)
+        return HTMLResponse('<!doctype html><html lang="vi"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>AIMarx — Trợ lý văn bản</title><style>body{font:17px system-ui;max-width:1100px;margin:30px auto;padding:20px;background:#f5f7fa;color:#182b3a}textarea{width:100%;min-height:320px}pre{white-space:pre-wrap}button,input{padding:9px;margin:5px}article{background:white;padding:20px;margin:15px 0;border:1px solid #ccd}a{color:#075e8f}.warn{background:#fff3cd;border:1px solid #e0b000;padding:12px;margin:12px 0}</style><a href="/">Kho tài liệu</a> · <a href="/tasks">Sổ công việc</a> · <a href="/usage">Thống kê token</a><h1>AIMarx</h1><p>Trợ lý văn bản chạy trên máy của bạn: mọi dữ kiện có nguồn, mọi quyết định do bạn duyệt.</p><p>Chế độ: <strong>' + esc(service.mode) + '</strong>. Phiếu thử nghiệm; chưa phải mẫu văn bản hành chính được xác nhận.</p>' + warn_banner() + body + '</html>', status_code=status)
 
     @app.exception_handler(ValueError)
     async def bad_value(request, exc):
@@ -93,6 +94,10 @@ def create_app(service=None):
                      '<textarea readonly>' + esc(typed) + '</textarea>')
         body += '<p><a href="' + esc(request.url.path) + '">Tải lại trang</a></p>'
         return page(body, status)
+
+    @app.get("/usage", response_class=HTMLResponse)
+    def usage(period: str = "7d", theme: str = "dark"):
+        return HTMLResponse(render_dashboard(service.token_usage.summary(period), theme))
 
     @app.get("/", response_class=HTMLResponse)
     def home():

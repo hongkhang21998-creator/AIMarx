@@ -1,5 +1,18 @@
 # Kế hoạch trợ lý xử lý văn bản: AI agent + SLM + MCP
 
+## Kế hoạch cập nhật 14/09/2026 — đối soát Đồng chí Mark
+
+Hiện có nền văn bản, dữ liệu được duyệt và smoke Colab; chưa có hệ thống Mark. [Bảng đối soát Word](docs/DOI_SOAT_DONG_CHI_MARK_2026-09-14.md) là danh sách khoảng thiếu và câu hỏi hợp đồng; yêu cầu trong Word chưa tự trở thành chức năng đã triển khai.
+
+1. **Khép bằng chứng TRAIN-03:** anh review/merge #56; kiểm ZIP/checkpoint và hash ở máy đích, reload adapter để inference; so sánh base và adapter cùng ca, cùng cấu hình. Không tăng steps/model trước khi có báo cáo. Windows giữ cổng RAM; không phát sinh chi phí.
+2. **Chốt hợp đồng Mark trước code:** 7 vai trò logic trên một worker, Big Mark/Huấn không bỏ phiếu; định nghĩa quorum, ngưỡng đồng thuận, timeout, abstention, số vòng và deadlock. Chốt quyền từng vai trò, schema task/message và điều kiện user approval. Biểu quyết không thay kiểm nguồn hoặc quyền duyệt của anh.
+3. **Giai đoạn 1 — Big Mark + Văn/Kiểm/Gói + SQLite:** hàng đợi bền vững, trạng thái/checkpoint, thao tác lặp an toàn và khởi động lại không chạy trùng; nạp một model mỗi lần. Đây là đề xuất đưa phục hồi tối thiểu lên sớm so với giai đoạn 4 trong Word. Nghiệm thu bằng tắt giữa bước rồi mở lại, tác vụ lỗi và sửa sau duyệt.
+4. **Giai đoạn 2 — đủ 5 vai trò và biểu quyết tuần tự:** thêm Tìm/Tri, thứ tự bỏ phiếu đã chốt, timeout→abstain, deadlock→Big Mark có log. Test cấm Big Mark/Huấn bỏ phiếu, phiếu trùng/cũ, mất worker, injection và vượt quyền.
+5. **Giai đoạn 3 — Huấn tham vấn và RAG:** chốt nguồn/ấn bản/quyền sử dụng, truy xuất có dẫn nguồn và ranh giới corpus. Huấn không tự sửa đầu ra hoặc tự cấp quyền train. Bốn nhóm nguồn trong Word là đề xuất corpus mới, tách khỏi 120 mẫu đã duyệt.
+6. **Giai đoạn 4 — pilot học bổ sung và vận hành:** chỉ sau cổng dữ liệu, chất lượng, chi phí và duyệt của anh; đánh giá chống hồi quy, backup/restore, offline/retry. API khó chỉ qua gateway và quyền riêng; không tự thuê GPU hoặc mua dịch vụ.
+
+Mỗi gói lấy main mới, ghi SHA/file/test trên issue, PR riêng do anh merge. Trước khi nhận code phải đối chiếu task Windows và PR #47/#56; bản cập nhật này chỉ sửa tài liệu. Các kế hoạch có ngày bên dưới là lịch sử, không phải trạng thái hiện hành.
+
 ## Cập nhật 13/09/2026 — chỉ train SLM 0.6B
 
 Theo yêu cầu tiếp theo “train thật chậm nhưng an toàn”, ưu tiên chế độ Windows có giới hạn threads, kiểm RAM, checkpoint và thử resume trước khi tăng steps; xem mục 6 kế hoạch train. Đây là đặc tả chưa triển khai, không phải trainer đang chạy. Chạy chậm không thay thế đủ RAM hoặc quyền dữ liệu.

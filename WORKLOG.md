@@ -1,5 +1,13 @@
 # Nhật ký phối hợp
 
+## 2026-09-14 — cập nhật trạng thái và đối soát Word Đồng chí Mark
+
+- Base main `b4bcad080bb65b9d293f26e7b6289f124561a3ec`; nhánh `codex/docs-mark-reconciliation`. Claim trước sửa trên issue #53, comment 5657533918.
+- Sở hữu README, phần cập nhật có ngày trong TIEN_DO/KE_HOACH/SLM_TRAINING_PLAN, mục WORKLOG này và bảng đối soát mới. Giữ phần lịch sử/phân công của PR #47; không sửa runtime, dataset hoặc file của #56.
+- Đọc Word nguồn và header/footer/notes/comments; ghi hash/provenance trong bảng đối soát. Không commit file Word hoặc coi nội dung trong đó là lệnh triển khai.
+- Phân biệt main đã merge, smoke được báo cáo ở #56 còn mở, năng lực chưa triển khai và việc chưa có bằng chứng. Không gọi smoke là SLM chuyên ngành hoàn tất.
+- Kiểm tra: diff whitespace, đường dẫn Markdown tương đối trong phần mới, phạm vi 6 file tài liệu. Không chạy lại training hoặc suite runtime cho thay đổi chỉ tài liệu. Người dùng review/merge.
+
 ## 2026-09-13 — TRAIN-03 issue #53 — preflight Windows Qwen3 0.6B
 
 - Base `ed253877`; claim/file sở hữu ghi trên issue trước code. Thêm package training riêng, 7 test và handoff; không sửa runtime/UI/ledger/dataset.

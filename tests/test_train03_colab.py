@@ -27,6 +27,8 @@ def test_notebook_has_two_process_resume_and_no_paid_or_cloud_push():
     assert "--stop-after', '1'" in source
     assert "--resume-from" in source and "checkpoint-1" in source
     assert "checkpoint-5" in source
+    assert "PINNED_COMMIT = 'f7e68086f71ba2d0306cdcd766cc53da2dc4df0d'" in source
+    assert "training.colab_qwen06.evaluate" in source
     assert "push_to_hub" not in source and "drive.mount" not in source
     assert "files.download" in source
 

@@ -1,5 +1,27 @@
 # Kế hoạch fine-tune SLM cho AIMarx
 
+## Quyết định mới nhất 14/09/2026 — một agent, SLM khoảng 3B + API
+
+Theo quyết định của anh Khang: **AIMarx có đúng một agent điều phối, dùng một SLM local khoảng 3 tỷ tham số; chức năng chính là phân loại và chọn luồng cố định. LLM lớn xử lý văn bản qua API; chương trình kiểm tra và đóng gói để anh duyệt.** Số tham số thuộc model, không phải toàn bộ agent.
+
+Luồng đích: nhập/đọc nguồn → SLM phân loại → backend kiểm quyền và chọn API đã cấu hình → LLM xử lý văn bản → kiểm kết quả → đóng gói DOCX/phiếu và trình duyệt.
+
+- Một worker xử lý tuần tự; API là dịch vụ được gọi, không phải agent tự trị. Không xây swarm, Big Mark cùng các agent Văn/Kiểm/Gói/Tìm/Tri/Huấn, mailbox liên-agent hoặc hội đồng bỏ phiếu.
+- Kiểm tra và đóng gói là các bước phần mềm trong cùng workflow. Quy tắc kiểm schema, nguồn, trường bắt buộc, phiên bản và hash là hàng rào chính; SLM chỉ bổ sung nhận xét. Kiểm nguồn chữ không chứng minh đúng ngữ nghĩa; ca khó cần người duyệt hoặc lời gọi API kiểm tra có giới hạn.
+- Backend giữ trạng thái SQLite, checkpoint nghiệp vụ, quyền dữ liệu, ngân sách, timeout và retry có giới hạn. SLM không tự cấp quyền hoặc mở agent mới. Lỗi API phải giữ tác vụ để tiếp tục, không báo hoàn thành giả.
+- Quyết định kiến trúc cho phép thiết kế đường API, không tự gửi hồ sơ thật hoặc phát sinh chi phí. Tái sử dụng hợp đồng PSC-01 và quyền đã cấp đúng phạm vi; duyệt sản phẩm cuối vẫn tách khỏi quyền gửi dữ liệu.
+- Mục tiêu local khoảng 3B, ưu tiên lượng tử hóa 4-bit và context ngắn đủ phân loại; chưa cam kết hiệu năng ASUS trước benchmark RAM đỉnh, p50/p95 và chất lượng. Máy local chạy suy luận; không đặt yêu cầu train 3B trên máy yếu.
+
+Mục này thay các chỉ đạo kiến trúc swarm/biểu quyết và giới hạn chỉ 0.6B trong ghi chép cũ bên dưới. Các mục có ngày trước quyết định này được giữ để truy vết, không phải backlog bắt buộc. Đây là quyết định thiết kế; chưa tuyên bố runtime API/3B đã triển khai.
+
+### Điều chỉnh mục tiêu học
+
+Ứng viên khoảng 3B đã có bằng chứng pipeline là Qwen2.5-3B: WORKLOG ghi TRAIN-05 đã chạy 5 optimizer step trên Colab T4 sau PR #71, loss validation từ 0.521681446602815 xuống 0.47600713589239374. Chưa có nghiệm thu phân loại hoặc triển khai local; Qwen3-0.6B giữ vai trò baseline lịch sử.
+
+Không huấn luyện nền từ đầu. Chỉ cân nhắc LoRA/QLoRA chuyên phân loại sau baseline và bộ nhãn đã duyệt. 120 mẫu cũ không tự trở thành gold phân loại: phải đối chiếu schema/nhãn, quyền sử dụng và split trước khi tái dùng. Đích học là loại yêu cầu, workflow_id hợp lệ, phát hiện thiếu thông tin và ngoài phạm vi; không học biểu quyết hay điều hành nhiều agent.
+
+Đánh giá gồm confusion matrix/macro-F1, đúng workflow, JSON hợp lệ, ca cần hỏi lại và ngoài phạm vi; so với quy tắc cố định. Khóa tập nghiệm thu độc lập, không tune trên smoke công khai. Kiểm backend chặn đề xuất vượt quyền tách khỏi điểm model. Chốt ngưỡng chất lượng và trần tài nguyên trước benchmark. Chưa chạy thêm training, tải model hoặc gọi API trong lần sửa tài liệu này.
+
 ## Trạng thái hiện hành — 14/09/2026
 
 Main đối chiếu `b4bcad0`: PR #52 đã đưa snapshot 120 mẫu được duyệt và split audit vào repo; PR #55 đã đưa tooling Colab vào main. [PR #56](https://github.com/hongkhang21998-creator/AIMarx/pull/56) còn mở, chứa context 4096 và báo cáo smoke T4 từ checkpoint-1 tới checkpoint-5. Vì vậy các câu “chưa train”, “0 approved”, “blocked_dependency_46” trong bản kế hoạch 13/09 phía dưới chỉ mô tả lịch sử.

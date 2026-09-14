@@ -13,7 +13,16 @@
 
 ## Trạng thái
 
-Đã triển khai và kiểm thử local; chờ PR/CI và anh Khang review, merge.
+Đã triển khai qua PR #60, merge vào `main` ngày 14/09/2026 tại commit `158f1c8f6e15cf7fe3163da7f19c4a3b23b45976`. Bản ghi dưới đây được cập nhật sau merge để phản ánh kiểm tra hậu merge.
+
+## Kiểm tra hậu merge — 14/09/2026
+
+- Checkout sạch `D:/Claude-cowork/aimarx-token-stats` đã đưa về đúng `origin/main` tại merge commit `158f1c8f6e15cf7fe3163da7f19c4a3b23b45976`; không chứa thay đổi cục bộ. `git diff --check` đạt.
+- Chạy lại toàn bộ bộ test trên Windows từ merge commit: **832 passed, 5 skipped**, 66,87 giây; một cảnh báo deprecation AnyIO/Starlette đã có trong dependency. Đây là lượt kiểm tra độc lập sau merge, khác với số CI trong PR.
+- Khởi động tạm UI bằng `TLVB_MODE=demo`, `TLVB_DATA=D:/Claude-cowork/tmp/aimarx-postmerge-verify`, `TLVB_PORT=8877`, `PYTHONPATH=src`; mở `http://127.0.0.1:8877/usage` trả trang `Thống kê token · AIMarx`, hiển thị trạng thái rỗng đúng và giữ CSP. Tiến trình tạm đã dừng, thư mục dữ liệu kiểm tra không phải kho production.
+- Kiểm tra thực tế ngày 14/09/2026 từ máy Windows: `127.0.0.1:11434`, `192.168.130.10:11434` và `192.168.1.2:11434` đều không có dịch vụ lắng nghe. Không inference thật, không tạo số liệu thật, không cài Ollama, không khởi động dịch vụ nền và không chạm máy Linux.
+- Checkout gốc `D:/Claude-cowork/tro-ly-van-ban` vẫn giữ nguyên nhánh `codex/train03-cpu-backend`, đang có 3 file training sửa và 4 file chưa track như trước; không pull, reset, stash hoặc checkout trên đó.
+- Trạng thái hiện tại: code đã merge và verified post-merge; **chưa** xác nhận Ollama runtime trên máy của anh. Bước triển khai còn lại cần chạy trên máy có Ollama thật, bằng `TLVB_DATA` đúng kho dữ liệu, sau khi người dùng chủ động cung cấp/khởi động runtime.
 
 ## Kết quả triển khai
 

@@ -15,7 +15,7 @@ NOTEBOOK = json.loads(
 def test_config_pins_three_billion_parameter_qlora_trial():
     assert CONFIG["model_id"] == "Qwen/Qwen2.5-3B-Instruct"
     assert CONFIG["model_revision"] == "aa8e72537993ba99e69dfaafa59ed015b17504d1"
-    assert CONFIG["max_length"] == 2048
+    assert CONFIG["max_length"] == 2560
     assert CONFIG["maximum_steps"] == 5
     assert CONFIG["micro_batch_size"] == 1
     assert CONFIG["minimum_gpu_memory_gib"] >= 14

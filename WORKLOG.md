@@ -1,5 +1,14 @@
 # Nhật ký phối hợp
 
+## 2026-09-14 — TRAIN-05 token audit Qwen2.5 yêu cầu context 2.560
+
+- Sau PR #70, lượt thử context 2.048 trên Tesla T4 miễn phí vẫn dừng trước
+  khi tải trọng số/chạy optimizer: tokenizer Qwen2.5-3B đo mẫu dài nhất cần
+  2.398 token. Không có checkpoint-1 và không phát sinh bằng chứng training.
+- Nâng context lên 2.560, vẫn giữ nguyên dữ liệu, không cắt gold, microbatch 1,
+  gradient accumulation 4 và cổng tài nguyên. Bước kế tiếp vẫn là gate đúng
+  một optimizer step trước khi cân nhắc resume đến step 5.
+
 ## 2026-09-14 — TRAIN-05 thử Qwen2.5-3B, cổng context chặn trước training
 
 - PR #69 đã merge tại main `66dc0dbd13b7f6f475cc368089582606b7ec910b`;

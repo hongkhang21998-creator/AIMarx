@@ -1,0 +1,21 @@
+{
+  "model_id": "Qwen/Qwen2.5-3B-Instruct",
+  "model_revision": "aa8e72537993ba99e69dfaafa59ed015b17504d1",
+  "enable_thinking": false,
+  "seed": 530015,
+  "max_length": 1024,
+  "lora_r": 8,
+  "lora_alpha": 16,
+  "lora_dropout": 0.05,
+  "learning_rate": 0.00005,
+  "micro_batch_size": 1,
+  "gradient_accumulation_steps": 4,
+  "minimum_gpu_memory_gib": 14.0,
+  "minimum_free_disk_gib": 20.0,
+  "maximum_steps": 5,
+  "save_total_limit": 2,
+  "train_count": 80,
+  "validation_count": 20,
+  "train_sha256": "1062862c5db0c466de2b2ac20c3f217edabfcaa84ea34304c28c46a9758e4a2b",
+  "validation_sha256": "8d3c43d3d69df8c7c58cba9733e76b1619d77629a144fae946468c8c56ad1741"
+}

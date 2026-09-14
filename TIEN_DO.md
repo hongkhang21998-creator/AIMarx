@@ -1,5 +1,28 @@
 # Tiến độ từng ngày
 
+## Quyết định mới nhất 14/09/2026 — một agent, SLM khoảng 3B + API
+
+Theo quyết định của anh Khang: **AIMarx có đúng một agent điều phối, dùng một SLM local khoảng 3 tỷ tham số; chức năng chính là phân loại và chọn luồng cố định. LLM lớn xử lý văn bản qua API; chương trình kiểm tra và đóng gói để anh duyệt.** Số tham số thuộc model, không phải toàn bộ agent.
+
+Luồng đích: nhập/đọc nguồn → SLM phân loại → backend kiểm quyền và chọn API đã cấu hình → LLM xử lý văn bản → kiểm kết quả → đóng gói DOCX/phiếu và trình duyệt.
+
+- Một worker xử lý tuần tự; API là dịch vụ được gọi, không phải agent tự trị. Không xây swarm, Big Mark cùng các agent Văn/Kiểm/Gói/Tìm/Tri/Huấn, mailbox liên-agent hoặc hội đồng bỏ phiếu.
+- Kiểm tra và đóng gói là các bước phần mềm trong cùng workflow. Quy tắc kiểm schema, nguồn, trường bắt buộc, phiên bản và hash là hàng rào chính; SLM chỉ bổ sung nhận xét. Kiểm nguồn chữ không chứng minh đúng ngữ nghĩa; ca khó cần người duyệt hoặc lời gọi API kiểm tra có giới hạn.
+- Backend giữ trạng thái SQLite, checkpoint nghiệp vụ, quyền dữ liệu, ngân sách, timeout và retry có giới hạn. SLM không tự cấp quyền hoặc mở agent mới. Lỗi API phải giữ tác vụ để tiếp tục, không báo hoàn thành giả.
+- Quyết định kiến trúc cho phép thiết kế đường API, không tự gửi hồ sơ thật hoặc phát sinh chi phí. Tái sử dụng hợp đồng PSC-01 và quyền đã cấp đúng phạm vi; duyệt sản phẩm cuối vẫn tách khỏi quyền gửi dữ liệu.
+- Mục tiêu local khoảng 3B, ưu tiên lượng tử hóa 4-bit và context ngắn đủ phân loại; chưa cam kết hiệu năng ASUS trước benchmark RAM đỉnh, p50/p95 và chất lượng. Máy local chạy suy luận; không đặt yêu cầu train 3B trên máy yếu.
+
+Mục này thay các chỉ đạo kiến trúc swarm/biểu quyết và giới hạn chỉ 0.6B trong ghi chép cũ bên dưới. Các mục có ngày trước quyết định này được giữ để truy vết, không phải backlog bắt buộc. Đây là quyết định thiết kế; chưa tuyên bố runtime API/3B đã triển khai.
+
+### Tiến độ đối chiếu với WORKLOG hiện tại
+
+- Đã chốt hướng single-agent khoảng 3B trong bản cập nhật này; chưa triển khai runtime mới.
+- WORKLOG ghi TRAIN-05 Qwen2.5-3B trên T4 miễn phí đã resume từ checkpoint-1 tới checkpoint-5 sau PR #71; validation loss base 0.521681446602815 → adapter 0.47600713589239374. Đây là số liệu được ghi trong repo, không phải lượt chạy lại của phiên này.
+- ZIP TRAIN-05 còn ở Colab theo nhật ký; chưa xác nhận backup local, chất lượng nghiệp vụ, GGUF hay tốc độ ASUS. Không đồng nhất train chạy được với phân loại đạt.
+- TRAIN-04 đã sinh 20 cặp A/B theo WORKLOG; chưa ghi nhận chấm nghiệp vụ. 20 smoke công khai không thay nghiệm thu độc lập N≥120.
+- Bỏ các mốc xây hệ thống nhiều Mark và biểu quyết khỏi đường triển khai hiện hành. Việc kế tiếp là bảo toàn artifact hiện có và chốt/đánh giá schema phân loại cho một agent.
+- Phân công phát triển hiện hành: Astra, Sol, Luna, Gemini; không giao việc mới cho Claude. Không suy thành runtime nhiều agent.
+
 ## Hiện trạng ngày 14/09/2026 — thay các số liệu trạng thái cũ bên dưới
 
 Đối chiếu main `85d7e97b09de2bb5a1f6b4281ea6ce7ce455feb2` và lượt pilot tại code commit `ce188aca11c1bbaec8a0929e4172e66261ef2646`. Không quy đổi số test hoặc số dòng code thành phần trăm hoàn thành.

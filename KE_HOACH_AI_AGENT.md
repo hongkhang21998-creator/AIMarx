@@ -1,5 +1,29 @@
 # Kế hoạch trợ lý xử lý văn bản: AI agent + SLM + MCP
 
+## Quyết định mới nhất 14/09/2026 — một agent, SLM khoảng 3B + API
+
+Theo quyết định của anh Khang: **AIMarx có đúng một agent điều phối, dùng một SLM local khoảng 3 tỷ tham số; chức năng chính là phân loại và chọn luồng cố định. LLM lớn xử lý văn bản qua API; chương trình kiểm tra và đóng gói để anh duyệt.** Số tham số thuộc model, không phải toàn bộ agent.
+
+Luồng đích: nhập/đọc nguồn → SLM phân loại → backend kiểm quyền và chọn API đã cấu hình → LLM xử lý văn bản → kiểm kết quả → đóng gói DOCX/phiếu và trình duyệt.
+
+- Một worker xử lý tuần tự; API là dịch vụ được gọi, không phải agent tự trị. Không xây swarm, Big Mark cùng các agent Văn/Kiểm/Gói/Tìm/Tri/Huấn, mailbox liên-agent hoặc hội đồng bỏ phiếu.
+- Kiểm tra và đóng gói là các bước phần mềm trong cùng workflow. Quy tắc kiểm schema, nguồn, trường bắt buộc, phiên bản và hash là hàng rào chính; SLM chỉ bổ sung nhận xét. Kiểm nguồn chữ không chứng minh đúng ngữ nghĩa; ca khó cần người duyệt hoặc lời gọi API kiểm tra có giới hạn.
+- Backend giữ trạng thái SQLite, checkpoint nghiệp vụ, quyền dữ liệu, ngân sách, timeout và retry có giới hạn. SLM không tự cấp quyền hoặc mở agent mới. Lỗi API phải giữ tác vụ để tiếp tục, không báo hoàn thành giả.
+- Quyết định kiến trúc cho phép thiết kế đường API, không tự gửi hồ sơ thật hoặc phát sinh chi phí. Tái sử dụng hợp đồng PSC-01 và quyền đã cấp đúng phạm vi; duyệt sản phẩm cuối vẫn tách khỏi quyền gửi dữ liệu.
+- Mục tiêu local khoảng 3B, ưu tiên lượng tử hóa 4-bit và context ngắn đủ phân loại; chưa cam kết hiệu năng ASUS trước benchmark RAM đỉnh, p50/p95 và chất lượng. Máy local chạy suy luận; không đặt yêu cầu train 3B trên máy yếu.
+
+Mục này thay các chỉ đạo kiến trúc swarm/biểu quyết và giới hạn chỉ 0.6B trong ghi chép cũ bên dưới. Các mục có ngày trước quyết định này được giữ để truy vết, không phải backlog bắt buộc. Đây là quyết định thiết kế; chưa tuyên bố runtime API/3B đã triển khai.
+
+### Thứ tự triển khai thay thế
+
+1. Khép lưu trữ và đánh giá artifact TRAIN-05 hiện có; kiểm bản sao/hash trước khi runtime Colab mất. Không tăng step chỉ vì đổi kiến trúc.
+2. Chốt schema phân loại: loại yêu cầu, workflow_id, thông tin thiếu, tham chiếu nguồn; backend ánh xạ workflow sang model/API trong allowlist. Có nhánh không chắc chắn và ngoài phạm vi.
+3. Benchmark model khoảng 3B lượng tử hóa trên ASUS với baseline định tuyến bằng quy tắc; đo chất lượng, RAM và thời gian trước tích hợp.
+4. Hoàn thiện một đường API đầu-cuối trên dữ liệu thử được phép, tái sử dụng gate/snapshot/ledger/adapter đã có sau khi kiểm mã; không viết lại các lớp này chỉ vì bỏ swarm.
+5. Nối kiểm tra–đóng gói–duyệt và phục hồi. Nghiệm thu mất mạng, restart giữa bước, retry không trùng, nguồn sai, sửa sau duyệt, đề xuất ngoài allowlist và vượt ngân sách.
+
+Phân công phát triển dùng Astra, Sol, Luna, Gemini theo chỉ đạo 12/09; Claude không còn trong kế hoạch giao việc mới. Đây là công cụ xây dựng dự án, không phải bốn agent trong runtime AIMarx. Mỗi gói giữ phạm vi file riêng và PR để anh merge.
+
 ## Kế hoạch cập nhật 14/09/2026 — đối soát Đồng chí Mark
 
 Hiện có nền văn bản, dữ liệu được duyệt và smoke Colab; chưa có hệ thống Mark. [Bảng đối soát Word](docs/DOI_SOAT_DONG_CHI_MARK_2026-09-14.md) là danh sách khoảng thiếu và câu hỏi hợp đồng; yêu cầu trong Word chưa tự trở thành chức năng đã triển khai.

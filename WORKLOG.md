@@ -1,5 +1,15 @@
 # Nhật ký phối hợp
 
+## 2026-09-14 — kế hoạch hoàn thiện một agent theo nhu cầu cuối
+
+- Phạm vi: KE_HOACH_AI_AGENT.md, TIEN_DO.md, WORKLOG.md; nhánh codex/remaining-single-agent-plan.
+- Chốt A0–A7: phân loại ~3B, một provider giá rẻ, MCP/gateway, token/ngân sách, kiểm tra/Word, việc/phục hồi, nghiệm thu ASUS.
+- Đọc kế hoạch/tiến độ/worklog hiện tại và PR mở #8/#11/#47; giữ lịch sử, yêu cầu đối chiếu module/test thật tại A0 để tránh làm lại.
+- Thêm điều kiện nghiệm thu, xử lý usage thiếu/timeout có thể đã tính phí, nguồn dài, ngưỡng thử ASUS và ước lượng theo buổi có điều kiện.
+- Quyền tự merge/deploy đã có từ anh; phiên này chỉ tài liệu, không gọi API/train/deploy runtime.
+- Kiểm tra: đọc lại nội dung ba file sau ghi; không chạy lại test runtime cho Markdown. Tiếp theo A0 theo kế hoạch.
+
+
 ## 2026-09-14 — chốt kiến trúc single-agent khoảng 3B
 
 - Yêu cầu: một agent phân loại local → gọi LLM lớn qua API → kiểm tra và đóng gói, phù hợp máy ASUS hạn chế tài nguyên.

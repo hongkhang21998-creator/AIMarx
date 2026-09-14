@@ -1,5 +1,25 @@
 # Nhật ký phối hợp
 
+## 2026-09-14 — chạy TRAIN-04 A/B trên Colab T4
+
+- PR #66 đã merge tại main `9c3c9b3b899ecaa22eb3e69f61a23b37969cc0a8`.
+  Phiên T4 cũ đã mất nên tái tạo pilot đúng notebook pin, dừng tại
+  checkpoint-20; không tăng step, không Drive, không push model và không
+  chọn compute trả phí.
+- Pilot tái lập trên Tesla T4: base loss `0.6562779318347893`, adapter loss
+  `0.4265158023940397`, 8.803 completion token; adapter SHA-256
+  `fc3e47189d2b4d470a3897867238a401cc4741b603bdbdd03e9bf25e427748ac`.
+- TRAIN-04 đã sinh đủ 20 base + 20 adapter, dựng 20 cặp review A/B.
+  `AIMarx-TRAIN04-review-first.zip`: 9.014 byte, SHA-256
+  `1d8413747fe841e0ff987f9657d12afbdccd93237bedb82f25d570ea69dd37b4`, chỉ
+  chứa `review.jsonl`. `AIMarx-TRAIN04-open-after-review.zip`: 5.104 byte,
+  SHA-256 `f9b2df32850d3c48ccd98d4190ced6bac8e2e33ed2792025c23198456355aabe`,
+  chứa reveal và gold tách riêng.
+- Hai lệnh download đã được Colab gọi, nhưng trình duyệt trong app không
+  đặt file vào `~/Downloads`, nên chưa ghi là đã backup local. Chưa mở
+  reveal/gold, chưa có chấm nghiệp vụ; 20 smoke công khai không thay thế
+  bộ kín độc lập N≥120.
+
 ## 2026-09-14 — chuẩn bị TRAIN-04 đánh giá đầu ra sau pilot
 
 - PR #64 đã merge tại main `d3aa1eb217c43b45feb875c4b9728a45ec8bcd4b`;

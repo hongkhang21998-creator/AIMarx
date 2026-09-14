@@ -48,7 +48,7 @@ def local_time(value):
     return datetime.fromisoformat(value).astimezone(LOCAL_TZ).strftime("%d/%m/%Y %H:%M") if value else "Chưa có lượt gọi"
 
 
-def render_dashboard(data, theme="dark"):
+def render_dashboard(data, theme="light"):
     theme = "light" if theme == "light" else "dark"
     period, totals = data["period"], data["totals"]
     labels = {"today": "Hôm nay", "7d": "7 ngày", "30d": "30 ngày", "all": "Tất cả"}

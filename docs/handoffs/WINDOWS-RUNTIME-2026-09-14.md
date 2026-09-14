@@ -63,6 +63,10 @@ TLVB_MODEL=qwen3:0.6b
 TLVB_PORT=8765
 ```
 
+Trang thống kê token local mặc định dùng giao diện sáng khi truy cập `/usage`
+không có tham số `theme`. Người dùng vẫn có thể chọn giao diện tối bằng
+`/usage?theme=dark`; lựa chọn này không thay đổi kho dữ liệu hay cấu hình model.
+
 Web đang chạy từ checkout sạch bằng Python trong `.venv`, lắng nghe tại:
 
 ```text

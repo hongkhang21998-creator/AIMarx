@@ -8,6 +8,6 @@ The first run is limited to one optimizer step. Resume to step 5 only after the
 checkpoint is complete and the T4 remains within memory limits. Do not extend
 to step 20 or run domain A/B evaluation without a separate human decision.
 
-Training uses 4-bit NF4 double quantization, LoRA rank 8, context 2,048,
+Training uses 4-bit NF4 double quantization, LoRA rank 8, context 2,560,
 microbatch 1 and gradient accumulation 4. It fails closed below 14 GiB GPU
 memory or 20 GiB free disk. It never mounts Drive or pushes a model.

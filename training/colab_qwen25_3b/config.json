@@ -3,7 +3,7 @@
   "model_revision": "aa8e72537993ba99e69dfaafa59ed015b17504d1",
   "enable_thinking": false,
   "seed": 530015,
-  "max_length": 2048,
+  "max_length": 2560,
   "lora_r": 8,
   "lora_alpha": 16,
   "lora_dropout": 0.05,

@@ -1,5 +1,16 @@
 # Nhật ký phối hợp
 
+## 2026-09-14 — TRAIN-05 thử Qwen2.5-3B, cổng context chặn trước training
+
+- PR #69 đã merge tại main `66dc0dbd13b7f6f475cc368089582606b7ec910b`;
+  chạy thử trên Tesla T4 miễn phí với runner QLoRA đã pin.
+- Export 80/20 và dependency hoàn tất. Token audit dừng trước khi tải trọng số
+  hoặc chạy optimizer vì một mẫu cần 1.987 token, vượt context 1.024; không có
+  checkpoint-1 và không cắt gold.
+- Nâng context lên 2.048 để bao phủ mẫu đã đo. Giữ microbatch 1, gradient
+  accumulation 4, NF4 double quantization và cổng VRAM 14 GiB. Chưa có bằng
+  chứng 3B fit T4; bước kế tiếp vẫn chỉ là thử đúng một optimizer step.
+
 ## 2026-09-14 — chạy TRAIN-04 A/B trên Colab T4
 
 - PR #66 đã merge tại main `9c3c9b3b899ecaa22eb3e69f61a23b37969cc0a8`.

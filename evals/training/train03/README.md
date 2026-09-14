@@ -10,6 +10,14 @@ training or tuning reported against the same cases.
 separate file for use only after the human review is locked. `generate.py` runs
 base and adapter with the same greedy decoding configuration. `blind.py` creates
 an A/B review bundle and a separate reveal map.
+The existing planning-v2 scorer checks strict JSON, schema, permitted workers,
+source IDs and verbatim evidence. Its result is advisory; semantic and business
+acceptance remain human decisions.
+
+Run `notebooks/TRAIN_04_Qwen3_0_6B_AB_Eval_Colab.ipynb` after the pilot notebook
+in the same T4 runtime. Open `AIMarx-TRAIN04-review-first.zip` and complete the
+review fields first. Keep `AIMarx-TRAIN04-open-after-review.zip` closed until the
+review file is saved and hashed; it contains the A/B reveal and gold reference.
 
 Final domain acceptance still requires an independently held private set of at
 least 120 cases, reviewed and authorized separately by Nguyen Hong Khang.

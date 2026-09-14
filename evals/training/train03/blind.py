@@ -6,6 +6,8 @@ import json
 import random
 from pathlib import Path
 
+from evals.planning_v2.score import score_raw
+
 
 def read_jsonl(path: Path) -> list[dict]:
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
@@ -39,8 +41,10 @@ def build_bundle(inputs: list[dict], base: list[dict], adapter: list[dict], seed
         mapping[prompt["id"]] = {"A": "adapter" if adapter_is_a else "base", "B": "base" if adapter_is_a else "adapter"}
         review.append({
             "id": prompt["id"], "input": prompt["input"],
-            "candidate_A": {"output": a["output"], "error": a["error"]},
-            "candidate_B": {"output": b["output"], "error": b["error"]},
+            "candidate_A": {"output": a["output"], "error": a["error"],
+                            "automated_check": score_raw(a["output"], prompt["input"]) if a["output"] is not None else None},
+            "candidate_B": {"output": b["output"], "error": b["error"],
+                            "automated_check": score_raw(b["output"], prompt["input"]) if b["output"] is not None else None},
             "review": {
                 "preferred": None,
                 "A": {"decision": None, "grounding": None, "missing_information": None, "worker_order": None, "no_escalation": None},

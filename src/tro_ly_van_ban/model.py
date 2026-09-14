@@ -3,6 +3,7 @@ import json
 import httpx
 from .domain import Extraction
 from .header import extract_header
+from .token_usage import measured_call
 
 
 class ModelUnavailable(RuntimeError):
@@ -131,17 +132,26 @@ def ground(item, sources: dict):
 
 def chat(messages: list[dict], model: str, schema: dict, num_ctx: int = 8192) -> dict:
     """Gửi messages tới Ollama local với khung sinh cho trước; trả JSON thô của model."""
+    with measured_call(model) as usage:
+        try:
+            with httpx.Client(timeout=120, trust_env=False) as client:
+                result = client.post("http://127.0.0.1:11434/api/chat", json={
+                    "model": model, "stream": False, "think": False, "format": schema,
+                    "options": {"temperature": 0, "num_ctx": num_ctx, "num_predict": 2048},
+                    "messages": messages})
+                result.raise_for_status()
+        except httpx.HTTPError as exc:
+            raise ModelUnavailable("Ollama/model chưa sẵn sàng; kiểm tra dịch vụ và tên model") from exc
+        try:
+            payload = result.json()
+            if not isinstance(payload, dict):
+                raise ValueError("Invalid response envelope")
+            # Only numerical allowlisted fields reach persistent storage.
+            usage.update(payload)
+        except (ValueError, TypeError) as exc:
+            raise ValueError("Model trả dữ liệu sai schema; cần kiểm tra hoặc thử lại") from exc
     try:
-        with httpx.Client(timeout=120, trust_env=False) as client:
-            result = client.post("http://127.0.0.1:11434/api/chat", json={
-                "model": model, "stream": False, "think": False, "format": schema,
-                "options": {"temperature": 0, "num_ctx": num_ctx, "num_predict": 2048},
-                "messages": messages})
-            result.raise_for_status()
-    except httpx.HTTPError as exc:
-        raise ModelUnavailable("Ollama/model chưa sẵn sàng; kiểm tra dịch vụ và tên model") from exc
-    try:
-        return json.loads(result.json()["message"]["content"])
+        return json.loads(payload["message"]["content"])
     except (ValueError, KeyError, TypeError) as exc:
         raise ValueError("Model trả dữ liệu sai schema; cần kiểm tra hoặc thử lại") from exc
 

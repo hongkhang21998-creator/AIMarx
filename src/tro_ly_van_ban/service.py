@@ -14,6 +14,7 @@ from .fsguard import freeze, harden_dir, thaw
 from .model import extract, ModelUnavailable
 from .parser import parse, MAX_BYTES
 from .storage_guard import check_data_root
+from .token_usage import TokenUsage, capture_usage
 
 
 class NotFound(ValueError):
@@ -99,6 +100,7 @@ class Service:
                 db.execute("ALTER TABLE documents ADD COLUMN error_kind TEXT NOT NULL DEFAULT ''")
             if "classification" not in {row[1] for row in db.execute("PRAGMA table_info(documents)")}:
                 db.execute("ALTER TABLE documents ADD COLUMN classification TEXT NOT NULL DEFAULT 'unknown'")
+        self.token_usage = TokenUsage(self.db)
 
     @contextlib.contextmanager
     def db(self):
@@ -189,7 +191,8 @@ class Service:
                         response = await client.call_tool("read_document", {"document_id": document_id})
                         return response.data
                 source = asyncio.run(read_source())
-                result = graph.invoke({"blocks": source["blocks"], "mode": self.mode, "model": self.model})
+                with capture_usage(self.token_usage):
+                    result = graph.invoke({"blocks": source["blocks"], "mode": self.mode, "model": self.model})
                 # Chot lai lan nua o cua ghi. Lock dang giu nen khong the lech,
                 # nhung the la hang rao khong phu thuoc vao viec ai do sau nay
                 # van giu lock suot lan goi model.

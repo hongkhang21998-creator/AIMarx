@@ -1,5 +1,16 @@
 # Nhật ký phối hợp
 
+## 2026-09-14 — chốt kiến trúc single-agent khoảng 3B
+
+- Yêu cầu: một agent phân loại local → gọi LLM lớn qua API → kiểm tra và đóng gói, phù hợp máy ASUS hạn chế tài nguyên.
+- Nhánh: codex/single-agent-3b-decision; phạm vi README.md, KE_HOACH_AI_AGENT.md, TIEN_DO.md, docs/SLM_TRAINING_PLAN.md, WORKLOG.md.
+- Thay mục tiêu nhiều Mark/biểu quyết bằng workflow tuần tự của một agent. Phân biệt model ~3B, agent và các bước phần mềm; giữ kiểm nguồn/phiên bản/quyền/ngân sách.
+- Ghi nhận TRAIN-05 step 5 và TRAIN-04 A/B từ nhật ký dưới đây; không ghi là đã benchmark ASUS hoặc nghiệm thu nghiệp vụ.
+- Đồng bộ phân công phát triển Astra/Sol/Luna/Gemini; không giao mới cho Claude. Không khởi chạy tác nhân phát triển khác.
+- Kiểm tra: đọc tài liệu hiện có, đối chiếu các mục mới và giữ nguyên phần lịch sử. Chỉ sửa Markdown; không chạy lại test ứng dụng, training hoặc API.
+- Tiếp theo: xác minh backup TRAIN-05, chốt schema và benchmark phân loại khoảng 3B; chưa triển khai trong phiên này.
+- Bàn giao qua PR để anh merge theo quy trình repo.
+
 ## 2026-09-14 — TRAIN-05 Qwen2.5-3B chạy thành công đến step 5
 
 - PR #71 đã xanh 4/4 và được merge theo phê duyệt trực tiếp tại

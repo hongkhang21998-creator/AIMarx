@@ -1,5 +1,17 @@
 # Kế hoạch fine-tune SLM cho AIMarx
 
+## Trạng thái hiện hành — 14/09/2026
+
+Main đối chiếu `b4bcad0`: PR #52 đã đưa snapshot 120 mẫu được duyệt và split audit vào repo; PR #55 đã đưa tooling Colab vào main. [PR #56](https://github.com/hongkhang21998-creator/AIMarx/pull/56) còn mở, chứa context 4096 và báo cáo smoke T4 từ checkpoint-1 tới checkpoint-5. Vì vậy các câu “chưa train”, “0 approved”, “blocked_dependency_46” trong bản kế hoạch 13/09 phía dưới chỉ mô tả lịch sử.
+
+Model vẫn là Qwen3-0.6B non-thinking, LoRA; không có quyết định nâng 1.7B. Snapshot được duyệt nằm ở `evals/training/train02/reviews/2026-09-13-khang`; chia 80 train, 20 validation, 20 smoke đã biết. Quyền dùng synthetic train/export đã được anh cấp với điều kiện không phát sinh thêm chi phí; không tự mở rộng sang corpus mới.
+
+Smoke 5 bước chứng minh pipeline chạy, chưa chứng minh chất lượng. Chưa xác minh độc lập trạng thái optimizer/RNG sau resume tương đương chạy liên tục; chưa có bằng chứng reload adapter inference, đánh giá base/adapter, peak RAM/VRAM, GGUF hoặc triển khai adapter trên Windows. Thao tác tải ZIP đã được báo cáo, nhưng chưa xác minh đường dẫn/hash bản sao tại Windows/Data1000. Giá trị loss ghi trong run không phải điểm nghiệp vụ.
+
+Bước kế tiếp: khép #56, kiểm artifact và backup, reload, đánh giá cùng điều kiện và duyệt nghiệp vụ trước pilot. Không chạy thêm training chỉ để cập nhật tài liệu. Mark Huấn và bốn nhóm corpus trong Word là thiết kế tương lai, cần hợp đồng nguồn/quyền/duyệt riêng; xem [đối soát](DOI_SOAT_DONG_CHI_MARK_2026-09-14.md).
+
+## Bản kế hoạch ngày 13/09/2026 — giữ để truy vết
+
 Khởi lập 12/09/2026 · Astra · mở rộng PR #45 về điều phối tuần tự.
 Cập nhật 13/09/2026 theo anh Khang: **chỉ Qwen3 0.6B, non-thinking** cho vòng đầu.
 Trạng thái: **điều chỉnh kế hoạch để review; chưa train hoặc phát sinh chi phí**.

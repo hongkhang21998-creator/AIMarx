@@ -1,5 +1,22 @@
 # Tiến độ từng ngày
 
+## Hiện trạng ngày 14/09/2026 — thay các số liệu trạng thái cũ bên dưới
+
+Đối chiếu main `b4bcad080bb65b9d293f26e7b6289f124561a3ec` và PR #56 tại `e2f826d`. Không quy đổi số test hoặc số dòng code thành phần trăm hoàn thành.
+
+| Hạng mục | Đã làm đến đâu | Còn thiếu |
+|---|---|---|
+| MVP văn bản | Nhập PDF chữ/DOCX/TXT, nguồn, đề xuất, DOCX, duyệt theo phiên bản/hash | Không phải workflow nhiều agent có phục hồi |
+| TRAIN-01 / PR #48 | 36 ca reference proposal-v2 và bằng chứng baseline | Reference/AI review không thay duyệt nghiệp vụ |
+| TRAIN-02 / PR #50, #52 | 120 mẫu approved ở snapshot riêng; quyền train/export; split audit #46 đã tích hợp | Root draft giữ nguyên để truy vết, không được hiểu thành chưa duyệt |
+| TRAIN-03 Windows / PR #54 | Có preflight, lần đo ghi nhận 2,914 GiB RAM trống, bị chặn dưới cổng 4 GiB | Chưa có bằng chứng training Windows thành công trong mốc đang đối chiếu |
+| TRAIN-03 Colab / PR #55, #56 | Tooling đã merge; báo cáo T4 tạo checkpoint-1 rồi process mới chạy tới checkpoint-5 | #56 còn mở; chưa nghiệm thu chất lượng, reload adapter hoặc backup local |
+| Đồng chí Mark theo Word mới | Đã đối soát thiết kế với code | Chưa triển khai role registry, mailbox, voting, Speaker hay Huấn |
+
+Anh đã nói chạy trên Windows; báo cáo này chỉ xác nhận phần có bằng chứng trong repo/PR, không suy ra kết quả lượt chạy khác. CI Linux/Windows của #56 đã báo thành công; đây không phải kiểm thử chất lượng model hay đo tài nguyên trên ASUS.
+
+Chi tiết nguồn, giới hạn bằng chứng và tiêu chí tiếp theo: [bảng đối soát](docs/DOI_SOAT_DONG_CHI_MARK_2026-09-14.md). PR #47 còn mở và sửa phân công/tài liệu; bản cập nhật này không thay phân công của nhánh đó. Các mục có ngày phía dưới được giữ làm lịch sử.
+
 ## Định hướng hiện hành — 11/09/2026: ưu tiên lõi xử lý và độ thông minh
 
 **Nhịp mới theo chỉ đạo tiếp theo:** giai đoạn tăng tốc, chuẩn bị nhiều gói và cho phép làm song song khi không chung file/phụ thuộc. Quy tắc cũ một gói cho cả dự án mỗi ngày được thay thế; vẫn kiểm thử, ghi bàn giao, PR riêng và người dùng merge. Các gói lõi phụ thuộc nhau phải đi tuần tự từ main đã merge, không xếp chồng PR.

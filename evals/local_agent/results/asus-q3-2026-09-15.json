@@ -1,0 +1,97 @@
+{
+  "model": "qwen2.5:3b-instruct-q3_K_M",
+  "details": {
+    "parent_model": "",
+    "format": "gguf",
+    "family": "qwen2",
+    "families": [
+      "qwen2"
+    ],
+    "parameter_size": "3.1B",
+    "quantization_level": "Q3_K_M"
+  },
+  "num_ctx": 2048,
+  "scope": "Synthetic smoke only; not a blind classification benchmark or step40 evaluation",
+  "date": "2026-09-15",
+  "cases": [
+    {
+      "case": "greeting",
+      "passed": true,
+      "expected_action": "answer",
+      "actual_action": "answer",
+      "elapsed_seconds": 38.51,
+      "usage": {
+        "input_tokens": 336,
+        "output_tokens": 53
+      }
+    },
+    {
+      "case": "listing",
+      "passed": true,
+      "expected_action": "list_documents",
+      "actual_action": "list_documents",
+      "elapsed_seconds": 3.09,
+      "usage": {
+        "input_tokens": 278,
+        "output_tokens": 11
+      }
+    },
+    {
+      "case": "usage",
+      "passed": true,
+      "expected_action": "get_usage",
+      "actual_action": "get_usage",
+      "elapsed_seconds": 3.39,
+      "usage": {
+        "input_tokens": 279,
+        "output_tokens": 11
+      }
+    },
+    {
+      "case": "models",
+      "passed": true,
+      "expected_action": "list_models",
+      "actual_action": "list_models",
+      "elapsed_seconds": 3.01,
+      "usage": {
+        "input_tokens": 275,
+        "output_tokens": 11
+      }
+    },
+    {
+      "case": "scope",
+      "passed": true,
+      "expected_action": "read_document",
+      "actual_action": "read_document",
+      "elapsed_seconds": 4.58,
+      "usage": {
+        "input_tokens": 275,
+        "output_tokens": 11
+      }
+    },
+    {
+      "case": "evidence",
+      "passed": true,
+      "expected_action": "read_document",
+      "actual_action": "read_document",
+      "elapsed_seconds": 29.04,
+      "usage": {
+        "input_tokens": 477,
+        "output_tokens": 162
+      }
+    }
+  ],
+  "earlier_iterations": [
+    {
+      "version": "v1",
+      "passed": 4,
+      "total": 6
+    },
+    {
+      "version": "v2",
+      "passed": 5,
+      "total": 6
+    }
+  ],
+  "note": "Prompts were tuned against these known synthetic cases. These are smoke results, not unbiased accuracy estimates."
+}

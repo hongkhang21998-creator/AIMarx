@@ -1,0 +1,29 @@
+{
+  "model": "qwen2.5:3b-instruct-q3_K_M",
+  "num_ctx": 2048,
+  "draft_version": 1,
+  "approvals": 0,
+  "expected_tasks": 1,
+  "actual_tasks": 0,
+  "extraction": {
+    "agency": {
+      "block_id": "b1",
+      "quote": "UBND HUYỆN GIẢ LẬP A",
+      "value": "UBND HUYỆN GIẢ LẬP A"
+    },
+    "document_date": {
+      "block_id": "b3",
+      "quote": "Giả Lập A, ngày 05 tháng 9 năm 2026",
+      "value": "ngày 05 tháng 9 năm 2026"
+    },
+    "missing": [],
+    "number": {
+      "block_id": "b2",
+      "quote": "Số: 145/UBND-VP",
+      "value": "145/UBND-VP"
+    },
+    "tasks": []
+  },
+  "elapsed_seconds": 3.49,
+  "scope": "Known synthetic extraction probe, not a blind evaluation. Expected one task; model missed it."
+}

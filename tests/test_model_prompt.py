@@ -59,6 +59,7 @@ def test_request_uses_vietnamese_keys_no_quote_and_stays_local(ollama):
     ollama["reply"] = {"cac_viec": [], "thong_tin_thieu": []}
     model.extract(blocks(), "ollama", "qwen3:0.6b")
     assert ollama["url"] == "http://127.0.0.1:11434/api/chat"
+    assert ollama["payload"]["options"]["num_ctx"] == 2048
     schema = json.dumps(ollama["payload"]["format"], ensure_ascii=False)
     assert "so_ky_hieu" in schema and "gia_tri" in schema
     assert '"number"' not in schema and "trich_nguyen_van" not in schema

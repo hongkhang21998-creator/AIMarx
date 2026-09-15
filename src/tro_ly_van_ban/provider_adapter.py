@@ -22,12 +22,17 @@ class ProviderAdapterError(RuntimeError):
 
 
 class ProviderAdapter:
-    def __init__(self, credentials, *, transport=None, clock=time.monotonic):
+    def __init__(self, credentials, *, transport=None, clock=time.monotonic, local_only=False):
         self.credentials = credentials
         self.transport = transport
         self.clock = clock
         self._calls = defaultdict(deque)
         self._lock = threading.Lock()
+        self.local_only = local_only
+
+    def require_cloud(self):
+        if self.local_only:
+            raise ProviderAdapterError("POLICY_DENIED", "Bản triển khai này chỉ cho phép xử lý local")
 
     def _limit(self, provider_id: str, rpm: int):
         now = self.clock()
@@ -45,6 +50,7 @@ class ProviderAdapter:
         return httpx.Client(timeout=timeout, transport=self.transport, trust_env=False, follow_redirects=False)
 
     def test_credential(self, provider_id: str) -> dict:
+        self.require_cloud()
         meta = self.credentials.get_public(provider_id)
         provider = meta["provider"]
         if provider not in ALLOWED_ENDPOINTS or meta["endpoint"] != ALLOWED_ENDPOINTS[provider]:
@@ -71,6 +77,7 @@ class ProviderAdapter:
 
     def chat(self, provider_id: str, messages: list[dict], *, max_output_tokens: int) -> dict:
         """Execute an already-authorized request assembled by the trusted backend."""
+        self.require_cloud()
         meta = self.credentials.get_public(provider_id)
         provider = meta["provider"]
         if (provider not in ALLOWED_ENDPOINTS or meta["endpoint"] != ALLOWED_ENDPOINTS[provider]

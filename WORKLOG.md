@@ -1,5 +1,19 @@
 # Nhật ký phối hợp
 
+## 2026-09-15 — codex/qwen-local-agent — nhận triển khai Qwen thật
+
+- Một agent; base `origin/main@30da026` sau khi anh Khang merge #81. Worktree riêng `qwen-local-agent`; giữ nguyên checkout gốc và worktree Claude.
+- Phạm vi nhận trước khi sửa: vòng agent local có công cụ giới hạn, UI/API/MCP nối cùng runtime, cấu hình model nhất quán, script khởi chạy, kiểm thử và bàn giao vận hành.
+- Ollama 0.33.3 đã có ở `.runtime/ollama/bin/ollama`; không nằm trong PATH. Tải Qwen2.5 3B Q4_K_M vào Data1000. Đây là model gốc, không phải checkpoint QLoRA step40.
+- Deployment chỉ loopback, cloud bị chặn tại backend bằng `TLVB_LOCAL_ONLY=1`; không nhập/đọc key thật. Sao lưu SQLite trước khi khởi chạy với dữ liệu hiện có. Anh Khang merge PR mới.
+- Chỉ đạo bổ sung: chuyển đúng **Q3_K_M**, khóa **num_ctx ≤ 2048** trên mọi đường inference của ứng dụng. Q4 tải dở đã dừng; Q3 đã pull và xác minh SHA-256. Đã đo `/api/ps`: context 2048, CPU, một model.
+- Agent: planner chọn enum kín; tối đa một công cụ đọc và hai lượt suy luận; document_id lấy từ caller; dữ liệu trong tài liệu không mở thêm công cụ/quyền. UI `/agent`, API `/v1/agent`, MCP `ask_aimarx` nối cùng façade; có script ASUS và shortcut trong menu ứng dụng.
+- Regression cuối: **900 passed, 2 skipped**, 78,65 giây; warning Starlette/AnyIO có sẵn. Smoke model thật: 4/6 → 5/6 → 6/6 sau sửa prompt và tách bước phân loại; đây là các ca giả lập đã biết, không phải accuracy test mù hoặc đánh giá step40. Số đo trong `evals/local_agent/results/asus-q3-2026-09-15.json`.
+- HTTP thật: tool `list_documents` hoàn thành, giữ 2 tài liệu hiện có, 4,72 giây. MCP stdio thật: đủ 5 tool, list_models đúng Q3. Backup SQLite trên Data1000 có `quick_check=ok`. Không gọi cloud, không dùng key thật.
+- **Anh Khang đã cấp quyền tự merge và deploy trong phiên này**, thay yêu cầu để anh merge ở dòng nhận việc ban đầu. Chỉ merge sau CI; triển khai commit merge và ghi receipt riêng máy/PR. Handoff: `docs/handoffs/QWEN-LOCAL-2026-09-15.md`.
+- Kiểm tra bổ sung trích xuất nghiệp vụ Q3: mẫu một việc bị trả 0 việc ở hai lượt, DOCX v1 tạo được nhưng chưa đạt chất lượng nghiệp vụ. Đã lưu bằng chứng giả lập và thêm cảnh báo phiếu trống việc; không tuyên bố đã nghiệm thu đầy đủ khả năng trích xuất. Chức năng agent phân loại/đọc vẫn qua 6/6 ca đã biết.
+- Bổ sung cảnh báo sau regression toàn bộ: `test_local_agent.py` + `test_workflow.py` đạt **83 passed, 1 skipped**, 13,69 giây. Chờ CI Linux/Windows trên head mới trước merge #82.
+
 ## 2026-09-15 — codex/credential-provider-facade — runtime local một agent
 
 - Một agent duy nhất; base `origin/main@e82a613`, worktree riêng, không chạm checkout chính hoặc `claude/ledger-store`.

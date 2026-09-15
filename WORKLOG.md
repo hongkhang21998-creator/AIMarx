@@ -1,5 +1,17 @@
 # Nhật ký phối hợp
 
+## 2026-09-15 — TRAIN-06 Qwen2.5-3B hoàn tất pilot step 20
+
+- Chạy notebook TRAIN-06 trên Tesla T4 miễn phí qua cổng step 1 → 5 → 20;
+  không OOM, không Drive/Hub/compute trả phí. Adapter cuối SHA-256
+  `bfc5ac16eb3181acc28eb939539cb78f6a83be5dcbe21144d1e94dce5acc5212`.
+- Trên 20 validation/8.803 completion token: base loss `0.521681446602815`,
+  adapter loss `0.37688171956994976`, chênh `-0.14479972703286526`.
+- ZIP 39 entry, 339.853.534 byte, SHA-256
+  `b2650bb49c5f27b2f651f351f48ffcc1b3edba5699e83ff450a1574d43bacc15`;
+  Colab đã bắt đầu tải, chưa xác nhận backup local bền vững.
+- Đây là pilot kỹ thuật, chưa thay A/B kín độc lập N≥120 hay human approval.
+
 ## 2026-09-15 — chuẩn bị Qwen2.5-3B pilot một effective epoch
 
 - Người dùng cấp quyền khẩn cấp tự merge và tiếp tục train. Phiên Colab cũ đã

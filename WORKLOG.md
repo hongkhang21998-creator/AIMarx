@@ -1,5 +1,15 @@
 # Nhật ký phối hợp
 
+## 2026-09-14 — hợp đồng workflow huấn luyện cho tám agent
+
+- Thêm hợp đồng fail-closed: file Word/PDF và công cụ ở localhost; worker GPU chỉ
+  nhận đoạn text/evidence đã kiểm và trả JSON chưa tin cậy.
+- Khóa tám vai trò, ba review độc lập trước finalizer, điểm cuối bắt buộc là
+  người duyệt. Model không có trường approve và citation phải trỏ nguồn local.
+- Mẫu chỉ đủ điều kiện train khi đúng task/agent, người dùng đã duyệt nội dung và
+  cấp riêng cả quyền train lẫn quyền export. Chưa mở tunnel/gọi Colab hoặc thay
+  runtime MVP; PR API kế tiếp phải đi qua PSC-01 và dùng dữ liệu synthetic trước.
+
 ## 2026-09-15 — chuẩn bị Qwen2.5-3B pilot một effective epoch
 
 - Người dùng cấp quyền khẩn cấp tự merge và tiếp tục train. Phiên Colab cũ đã

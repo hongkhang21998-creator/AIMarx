@@ -137,7 +137,6 @@ def test_invalid_id_or_model_rejected(entry):
         "DEEPSEEK",
         "Glm",
         "GLM",
-        "openai",
         "claude",
         "gemini",
         "ollama ",

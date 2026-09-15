@@ -101,6 +101,8 @@ class Service:
             if "classification" not in {row[1] for row in db.execute("PRAGMA table_info(documents)")}:
                 db.execute("ALTER TABLE documents ADD COLUMN classification TEXT NOT NULL DEFAULT 'unknown'")
         self.token_usage = TokenUsage(self.db)
+        from .aimarx import Aimarx
+        self.aimarx = Aimarx(self)
 
     @contextlib.contextmanager
     def db(self):

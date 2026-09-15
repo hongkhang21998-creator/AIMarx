@@ -7,7 +7,7 @@ name = "tro-ly-van-ban"
 version = "0.1.0"
 description = "AIMarx — trợ lý văn bản local có nguồn và duyệt phiên bản"
 requires-python = ">=3.12"
-dependencies = ["fastapi", "uvicorn", "python-multipart", "pydantic>=2", "httpx", "pypdf", "python-docx", "langgraph", "fastmcp"]
+dependencies = ["fastapi", "uvicorn", "python-multipart", "pydantic>=2", "httpx", "pypdf", "python-docx", "langgraph", "fastmcp", "keyring>=25,<26"]
 
 [project.optional-dependencies]
 test = ["pytest"]

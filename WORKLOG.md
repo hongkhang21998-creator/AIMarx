@@ -1,5 +1,16 @@
 # Nhật ký phối hợp
 
+## 2026-09-15 — codex/credential-provider-facade — runtime local một agent
+
+- Một agent duy nhất; base `origin/main@e82a613`, worktree riêng, không chạm checkout chính hoặc `claude/ledger-store`.
+- Sở hữu credential/provider adapter/gateway/façade, route UI/API/MCP, test và tài liệu bàn giao. Không lưu hay dùng key thật; mọi provider test bằng mock.
+- Local chat đi thẳng Ollama loopback, có token accounting và không fallback cloud. Cloud từ API/MCP dừng ở `CONSENT_REQUIRED`.
+- UI cloud buộc xem trước và xác nhận CSRF; gateway nối snapshot, grant, ledger, adapter và settlement. Endpoint cố định allowlist; HTTPX tắt proxy môi trường và redirect.
+- Sentinel key chỉ vào memory vault của test, không xuất hiện trong SQLite/result/MCP schema. Regression cuối: 876 passed, 2 skipped, một cảnh báo Starlette cũ.
+- Smoke runtime tách riêng: bind `127.0.0.1:8876`; `/`, `/chat`, `/providers`, `/v1/providers`, `/v1/usage?period=today` đều HTTP 200; instance đã dừng sạch.
+- Checkpoint step40 local có adapter SHA-256 `3e60051c7df52204efbb64b70c94d07bd26eef798fa2b442114589f85d21a14f`; chưa import runtime vì Ollama không công bố hỗ trợ trực tiếp Safetensors adapter Qwen.
+- Người dùng merge PR. Không bật provider, không gọi API thật và không phát sinh chi phí.
+
 ## 2026-09-15 — TRAIN-07 Qwen2.5-3B hoàn tất tiếp tục đến step 40
 
 - Tái lập step 1 → 5 → 20 rồi resume thêm một effective epoch đến step 40 trên

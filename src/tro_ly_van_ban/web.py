@@ -10,6 +10,9 @@ from .model import ModelUnavailable
 from .service import Conflict, NotFound, Service
 from .parser import MAX_BYTES
 from .token_dashboard import render_dashboard
+from .aimarx import AimarxError
+from .credentials import CredentialError
+from .provider_adapter import ProviderAdapterError
 
 
 def create_app(service=None):
@@ -78,7 +81,7 @@ def create_app(service=None):
         return ''.join('<p class="warn"><b>Cảnh báo môi trường:</b> ' + esc(w) + '</p>' for w in getattr(service, "warnings", []))
 
     def page(body, status=200):
-        return HTMLResponse('<!doctype html><html lang="vi"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>AIMarx — Trợ lý văn bản</title><style>body{font:17px system-ui;max-width:1100px;margin:30px auto;padding:20px;background:#f5f7fa;color:#182b3a}textarea{width:100%;min-height:320px}pre{white-space:pre-wrap}button,input{padding:9px;margin:5px}article{background:white;padding:20px;margin:15px 0;border:1px solid #ccd}a{color:#075e8f}.warn{background:#fff3cd;border:1px solid #e0b000;padding:12px;margin:12px 0}</style><a href="/">Kho tài liệu</a> · <a href="/tasks">Sổ công việc</a> · <a href="/usage">Thống kê token</a><h1>AIMarx</h1><p>Trợ lý văn bản chạy trên máy của bạn: mọi dữ kiện có nguồn, mọi quyết định do bạn duyệt.</p><p>Chế độ: <strong>' + esc(service.mode) + '</strong>. Phiếu thử nghiệm; chưa phải mẫu văn bản hành chính được xác nhận.</p>' + warn_banner() + body + '</html>', status_code=status)
+        return HTMLResponse('<!doctype html><html lang="vi"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>AIMarx — Trợ lý văn bản</title><style>body{font:17px system-ui;max-width:1100px;margin:30px auto;padding:20px;background:#f5f7fa;color:#182b3a}textarea{width:100%;min-height:320px}pre{white-space:pre-wrap}button,input,select{padding:9px;margin:5px}article{background:white;padding:20px;margin:15px 0;border:1px solid #ccd}a{color:#075e8f}.warn{background:#fff3cd;border:1px solid #e0b000;padding:12px;margin:12px 0}</style><a href="/">Kho tài liệu</a> · <a href="/chat">Hỏi AIMarx</a> · <a href="/tasks">Sổ công việc</a> · <a href="/usage">Thống kê token</a> · <a href="/providers">Provider</a><h1>AIMarx</h1><p>Trợ lý văn bản chạy trên máy của bạn: mọi dữ kiện có nguồn, mọi quyết định do bạn duyệt.</p><p>Chế độ: <strong>' + esc(service.mode) + '</strong>. Phiếu thử nghiệm; chưa phải mẫu văn bản hành chính được xác nhận.</p>' + warn_banner() + body + '</html>', status_code=status)
 
     @app.exception_handler(ValueError)
     async def bad_value(request, exc):
@@ -95,9 +98,131 @@ def create_app(service=None):
         body += '<p><a href="' + esc(request.url.path) + '">Tải lại trang</a></p>'
         return page(body, status)
 
+    @app.exception_handler(AimarxError)
+    @app.exception_handler(CredentialError)
+    @app.exception_handler(ProviderAdapterError)
+    async def controlled_error(request, exc):
+        code = getattr(exc, "code", "CREDENTIAL_UNAVAILABLE")
+        status = 409 if code in {"CONSENT_REQUIRED", "POLICY_DENIED"} else 503
+        if request.url.path.startswith("/v1/") and request.url.path != "/providers":
+            return JSONResponse({"error": code, "message": str(exc)}, status)
+        return page('<h2>Chưa thực hiện được</h2><p>' + esc(exc) + '</p>', status)
+
     @app.get("/usage", response_class=HTMLResponse)
     def usage(period: str = "7d", theme: str = "light"):
         return HTMLResponse(render_dashboard(service.token_usage.summary(period), theme))
+
+    @app.get("/v1/providers")
+    def api_providers():
+        return {"providers": service.aimarx.credentials.list_public()}
+
+    @app.get("/v1/usage")
+    def api_usage(period: str = "7d"):
+        return service.aimarx.usage(period)
+
+    @app.post("/v1/chat")
+    async def api_chat(request: Request):
+        try:
+            body = await request.json()
+        except Exception:
+            raise ValueError("JSON không hợp lệ") from None
+        if type(body) is not dict or set(body) - {"message", "model_id"}:
+            raise ValueError("Yêu cầu chat không hợp lệ")
+        return await run_in_threadpool(service.aimarx.ask, body.get("message"), body.get("model_id"))
+
+    @app.get("/providers", response_class=HTMLResponse)
+    def providers_page():
+        body = '<h2>Provider và API key</h2><p>Key được lưu trong kho bí mật của hệ điều hành. SQLite chỉ giữ fingerprint.</p>'
+        for provider in service.aimarx.credentials.list_public():
+            body += '<article><b>' + esc(provider["id"]) + '</b> — ' + esc(provider["model"])
+            body += '<p>Trạng thái: ' + ("bật" if provider["enabled"] else "tắt") + '; credential: ' + esc(provider["key_fingerprint"] or "chưa có") + '</p>'
+            if provider["provider"] != "ollama":
+                body += f'<form action="/v1/providers/{esc(provider["id"])}/credential" method="post">{hidden}<input type="password" name="credential" autocomplete="new-password" required><button>Thêm hoặc thay key</button></form>'
+                body += f'<form action="/v1/providers/{esc(provider["id"])}/test" method="post">{hidden}<button>Kiểm tra key</button></form>'
+                enabled = "false" if provider["enabled"] else "true"
+                label = "Tắt provider" if provider["enabled"] else "Bật provider"
+                body += f'<form action="/v1/providers/{esc(provider["id"])}/enabled" method="post">{hidden}<input type="hidden" name="enabled" value="{enabled}"><button>{label}</button></form>'
+                body += f'<form action="/v1/providers/{esc(provider["id"])}/revoke" method="post">{hidden}<button>Thu hồi key</button></form>'
+        return page(body)
+
+    @app.get("/chat", response_class=HTMLResponse)
+    def chat_page():
+        body = f'<h2>Hỏi AIMarx local</h2><p>Yêu cầu này chỉ gửi tới Ollama trên máy.</p><form action="/chat" method="post">{hidden}<textarea name="message" required></textarea><button>Gửi tới SLM local</button></form>'
+        cloud = [row for row in service.aimarx.credentials.list_public()
+                 if row["provider"] != "ollama" and row["enabled"]]
+        if cloud:
+            options = ''.join('<option value="' + esc(row["id"]) + '">' +
+                              esc(row["id"] + " · " + row["model"]) + '</option>' for row in cloud)
+            labels = ''.join('<option value="' + key + '">' + esc(label) + '</option>'
+                             for key, label in classifications.items() if key in {"public", "synthetic"})
+            body += f'<h2>Chuẩn bị yêu cầu cloud</h2><p>Chưa gửi ở bước này. Anh sẽ xem đúng payload và xác nhận ở màn hình kế tiếp.</p><form action="/cloud/prepare" method="post">{hidden}<select name="provider_id">{options}</select><select name="classification">{labels}</select><textarea name="message" required></textarea><button>Xem trước</button></form>'
+        return page(body)
+
+    @app.post("/chat", response_class=HTMLResponse)
+    async def chat_submit(request: Request):
+        form = await checked_form(request)
+        message = required(form, "message")
+        result = await run_in_threadpool(service.aimarx.ask, message)
+        return page('<h2>Kết quả local</h2><article><pre>' + esc(result["content"]) +
+                    '</pre></article><p>Model: ' + esc(result["model_id"]) + '</p>')
+
+    @app.post("/cloud/prepare", response_class=HTMLResponse)
+    async def cloud_prepare(request: Request):
+        form = await checked_form(request)
+        prepared = await run_in_threadpool(service.aimarx.provider_gateway.prepare_chat,
+                                           required(form, "message"), required(form, "provider_id"),
+                                           required(form, "classification"))
+        preview = json.dumps(prepared["preview"], ensure_ascii=False, indent=2)
+        body = ('<h2>Xác nhận gửi cloud</h2><p>Provider: ' + esc(prepared["provider_id"]) +
+                ' · model: ' + esc(prepared["model"]) + ' · phân loại: ' +
+                esc(prepared["classification"]) + '</p>')
+        body += '<article><pre>' + esc(preview) + '</pre></article>'
+        body += f'<form action="/cloud/confirm" method="post">{hidden}<input type="hidden" name="snapshot_id" value="{esc(prepared["snapshot_id"])}"><input type="hidden" name="provider_id" value="{esc(prepared["provider_id"])}"><button>Tôi xác nhận gửi đúng payload này</button></form>'
+        return page(body)
+
+    @app.post("/cloud/confirm", response_class=HTMLResponse)
+    async def cloud_confirm(request: Request):
+        form = await checked_form(request)
+        result = await run_in_threadpool(service.aimarx.provider_gateway.confirm_and_execute,
+                                         required(form, "snapshot_id"), required(form, "provider_id"),
+                                         principal_secret=token.encode("ascii"))
+        return page('<h2>Kết quả provider — chờ anh kiểm tra</h2><article><pre>' +
+                    esc(result["content"]) + '</pre></article><p>Ledger: ' +
+                    esc(result["ledger_state"]) + '</p>')
+
+    @app.post("/v1/providers/{provider_id}/credential")
+    async def set_credential(provider_id: str, request: Request):
+        form = await checked_form(request)
+        await run_in_threadpool(service.aimarx.credentials.set_secret, provider_id, required(form, "credential"))
+        return RedirectResponse("/providers", 303)
+
+    @app.post("/v1/providers/{provider_id}/test")
+    async def test_credential(provider_id: str, request: Request):
+        await checked_form(request)
+        await run_in_threadpool(service.aimarx.test_provider, provider_id)
+        return RedirectResponse("/providers", 303)
+
+    @app.post("/v1/providers/{provider_id}/enabled")
+    async def set_provider_enabled(provider_id: str, request: Request):
+        form = await checked_form(request)
+        raw = required(form, "enabled")
+        if raw not in {"true", "false"}:
+            raise ValueError("Trạng thái provider không hợp lệ")
+        await run_in_threadpool(service.aimarx.credentials.set_enabled, provider_id, raw == "true")
+        return RedirectResponse("/providers", 303)
+
+    @app.post("/v1/providers/{provider_id}/revoke")
+    async def revoke_credential_form(provider_id: str, request: Request):
+        await checked_form(request)
+        await run_in_threadpool(service.aimarx.credentials.revoke, provider_id)
+        return RedirectResponse("/providers", 303)
+
+    @app.delete("/v1/providers/{provider_id}/credential")
+    async def revoke_credential(provider_id: str, request: Request):
+        if not secrets.compare_digest(request.headers.get("x-csrf-token", ""), token):
+            from fastapi import HTTPException
+            raise HTTPException(403, "CSRF không hợp lệ")
+        return await run_in_threadpool(service.aimarx.credentials.revoke, provider_id)
 
     @app.get("/", response_class=HTMLResponse)
     def home():

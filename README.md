@@ -52,6 +52,15 @@ TLVB_MODE=demo scripts/run-local.sh
 
 Mở http://127.0.0.1:8765. Demo được gắn nhãn rõ, chỉ tạo phiếu rỗng có chỗ cần bổ sung; **không giả kết quả trích xuất AI**. Nhập một TXT UTF-8, bấm trích xuất rồi điền trường và chọn đoạn nguồn. Dữ kiện phải được chép nguyên văn từ đoạn đã chọn. Lưu tạo phiên bản mới; xác nhận/từ chối áp dụng cho phiên bản và hash hiện tại. Tải DOCX để kiểm tra bố cục.
 
+Các bề mặt local dùng chung một façade:
+
+- `/chat`: hỏi SLM Ollama trên máy; không tự chuyển sang cloud.
+- `/providers`: thêm, thay, kiểm tra, bật/tắt và thu hồi key. Key nằm trong Windows Credential Manager hoặc Linux Secret Service; SQLite chỉ giữ fingerprint.
+- `/v1/chat`, `/v1/providers`, `/v1/usage`: API loopback. API và MCP không nhận API key.
+- MCP chỉ có `ask_aimarx`, `list_models`, `get_usage`, `read_document`, `get_evidence`.
+
+Cloud chỉ xuất hiện trên `/chat` sau khi key đã được thêm và provider được bật. Mỗi yêu cầu phải qua màn hình xem trước rồi bấm xác nhận; backend mới tiêu thụ grant, giữ ngân sách và gọi adapter. Thiếu rate card/hạn mức riêng máy thì chặn trước network. Không ghi rate card thật hoặc key vào Git.
+
 Dùng model thật sau khi đã cài Ollama và tải model phù hợp RAM:
 
 ```bash
@@ -67,6 +76,7 @@ Tên model là cấu hình, không phải khuyến nghị chất lượng nghi�
 | `TLVB_MODEL` | `qwen3:0.6b` |
 | `TLVB_PORT` | `8765` |
 | `TLVB_REQUIRED_MOUNT` | không đặt (không kiểm ổ) |
+| `TLVB_PROVIDER_CONFIG` | `provider-config.json` trong `TLVB_DATA` |
 
 **Kho bắt buộc trên ổ ngoài.** Đặt `TLVB_REQUIRED_MOUNT` là điểm gắn ổ thì UI và MCP chỉ khởi động khi `TLVB_DATA` là đường dẫn tuyệt đối nằm trên đúng ổ đó và ổ đang gắn; sai thì dừng với thông báo tiếng Việt và **không tạo kho mới**. Lý do: điểm gắn nằm dưới `/run` (tmpfs), rút ổ rồi khởi động lại có thể dựng một DB rỗng trong RAM. Máy ASUS dùng `TLVB_REQUIRED_MOUNT=/run/media/asus/Data1000` và `TLVB_DATA=/run/media/asus/Data1000/AIMarx/workspace/data`.
 
@@ -194,4 +204,3 @@ Nghiệm thu	python -m pytest -q tests/test_routing.py; sau đó python -m pytes
 •	Token dashboard: src/tro_ly_van_ban/token_dashboard.py; src/tro_ly_van_ban/token_usage.py; src/tro_ly_van_ban/web.py.
 •	Kiểm thử: tests/test_token_usage.py; tài liệu bàn giao: docs/handoffs/OLLAMA-TOKEN-DASHBOARD-2026-09-14.md.
 •	Ảnh QA: docs/qa/token-dashboard; giấy phép: docs/third-party/WhereMyTokens-LIC
-

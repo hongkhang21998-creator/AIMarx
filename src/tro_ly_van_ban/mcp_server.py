@@ -8,11 +8,6 @@ def create_mcp(service):
     mcp = FastMCP("Trợ lý văn bản — read only")
 
     @mcp.tool
-    def list_documents() -> list[dict]:
-        """List registered documents, at most 100."""
-        return service.listing()[:100]
-
-    @mcp.tool
     def read_document(document_id: str) -> dict:
         """Read source blocks and parser warnings for a registered document ID."""
         doc = service.get(document_id)
@@ -27,6 +22,21 @@ def create_mcp(service):
         if any(x not in blocks for x in block_ids):
             raise ValueError("Đoạn nguồn không tồn tại")
         return [blocks[x] for x in block_ids]
+
+    @mcp.tool
+    def ask_aimarx(message: str, model_id: str | None = None) -> dict:
+        """Ask an enabled local model. Cloud models require confirmation in the local UI."""
+        return service.aimarx.ask(message, model_id)
+
+    @mcp.tool
+    def list_models() -> list[dict]:
+        """List public model metadata; credentials are never returned."""
+        return service.aimarx.list_models()
+
+    @mcp.tool
+    def get_usage(period: str = "7d") -> dict:
+        """Return local token accounting for today, 7d, 30d, or all."""
+        return service.aimarx.usage(period)
 
     return mcp
 

@@ -77,6 +77,7 @@ Cấu hình client dùng command `bash`, arguments chứa đường dẫn tuyệ
 - Trước khi sửa prompt, lượt đầu đạt 4/6, lượt kế tiếp 5/6; đã dùng các ca này để sửa. **6/6 không phải accuracy trên bộ test mù**, không đại diện toàn bộ hồ sơ hành chính hay chất lượng step40.
 - ASUS i3-8130U, 2 core/4 thread, RAM hệ điều hành báo 7,1 GiB. Một lần đo runner RSS khoảng **1,65 GiB**, cả máy còn khoảng **1,9 GiB available**. Đây là một quan sát khi chạy, không phải cam kết RAM đỉnh hoặc p95. Ollama báo model loaded size 1.747.147.816 byte gồm bộ nhớ runtime liên quan.
 - Test kiểm schema sai, chọn công cụ ngoài allowlist, đọc thiếu scope, nội dung nguồn chứa lệnh, chạy đồng thời, endpoint metadata bị sửa, cloud lock trước khi đọc key, context vượt 2048 và API/MCP không nhận key.
+- Kiểm bổ sung **luồng trích xuất nghiệp vụ cũ chưa đạt**: mẫu giả lập giao một việc, Q3 trả 0 việc trong hai lần chạy, dù tạo DOCX v1 với số/cơ quan/ngày đúng và không tự duyệt. Giao diện nay cảnh báo rõ khi phiếu không có việc; người dùng bổ sung từ nguồn. Không coi 6/6 smoke agent là nghiệm thu trích xuất đầy đủ. Số đo chi tiết trong `evals/local_agent/results/asus-q3-extraction-2026-09-15.json`.
 
 ## Tiếp quản / hoàn tác
 

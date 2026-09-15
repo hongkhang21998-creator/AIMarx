@@ -190,3 +190,12 @@ def test_all_local_defaults_use_q3_and_2048(tmp_path):
     assert service.aimarx.credentials.get_public("local-qwen")["model"] == service.model
     assert inspect.signature(chat).parameters["num_ctx"].default == 2048
     assert inspect.signature(extract).parameters["num_ctx"].default == 2048
+
+
+def test_empty_extraction_is_flagged_for_review_in_ui(service):
+    doc = service.ingest("source.txt", "Đề nghị gửi báo cáo trước ngày 20/09/2026.".encode())
+    service.save(doc, {"number": None, "agency": None, "document_date": None, "tasks": [], "missing": []}, expected_version=0)
+    with TestClient(create_app(service), base_url="http://127.0.0.1") as client:
+        page = client.get(f"/documents/{doc}")
+        assert "Cần đọc lại nguồn và bổ sung nếu bị sót" in page.text
+    assert service.get(doc)["approvals"] == []

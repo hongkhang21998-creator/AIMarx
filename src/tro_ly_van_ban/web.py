@@ -320,6 +320,8 @@ def create_app(service=None):
             body += "<p>Nguồn tạo phiên bản: " + esc(latest["mode"]) + "</p>"
             content = json.dumps(json.loads(latest["content"]), ensure_ascii=False, indent=2)
             data = json.loads(latest["content"])
+            if not data["tasks"]:
+                body += '<p class="warn">Phiếu hiện chưa có công việc. Cần đọc lại nguồn và bổ sung nếu bị sót; kết quả này chưa xác nhận rằng văn bản không giao việc.</p>'
             body += f'<h3>Phiếu xử lý</h3><form action="/documents/{doc_id}/edit" method="post">{hidden}<input type="hidden" name="version" value="{latest["version"]}">'
             def field(key, label, item):
                 item = item or {}

@@ -11,6 +11,8 @@
 - Regression cuối: **900 passed, 2 skipped**, 78,65 giây; warning Starlette/AnyIO có sẵn. Smoke model thật: 4/6 → 5/6 → 6/6 sau sửa prompt và tách bước phân loại; đây là các ca giả lập đã biết, không phải accuracy test mù hoặc đánh giá step40. Số đo trong `evals/local_agent/results/asus-q3-2026-09-15.json`.
 - HTTP thật: tool `list_documents` hoàn thành, giữ 2 tài liệu hiện có, 4,72 giây. MCP stdio thật: đủ 5 tool, list_models đúng Q3. Backup SQLite trên Data1000 có `quick_check=ok`. Không gọi cloud, không dùng key thật.
 - **Anh Khang đã cấp quyền tự merge và deploy trong phiên này**, thay yêu cầu để anh merge ở dòng nhận việc ban đầu. Chỉ merge sau CI; triển khai commit merge và ghi receipt riêng máy/PR. Handoff: `docs/handoffs/QWEN-LOCAL-2026-09-15.md`.
+- Kiểm tra bổ sung trích xuất nghiệp vụ Q3: mẫu một việc bị trả 0 việc ở hai lượt, DOCX v1 tạo được nhưng chưa đạt chất lượng nghiệp vụ. Đã lưu bằng chứng giả lập và thêm cảnh báo phiếu trống việc; không tuyên bố đã nghiệm thu đầy đủ khả năng trích xuất. Chức năng agent phân loại/đọc vẫn qua 6/6 ca đã biết.
+- Bổ sung cảnh báo sau regression toàn bộ: `test_local_agent.py` + `test_workflow.py` đạt **83 passed, 1 skipped**, 13,69 giây. Chờ CI Linux/Windows trên head mới trước merge #82.
 
 ## 2026-09-15 — codex/credential-provider-facade — runtime local một agent
 

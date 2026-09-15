@@ -503,7 +503,7 @@ def test_mcp_client_and_no_approval_tool(service):
     async def run():
         async with Client(create_mcp(service)) as client:
             names = {t.name for t in await client.list_tools()}
-            assert names == {"list_documents", "read_document", "get_evidence"}
+            assert names == {"ask_aimarx", "list_models", "get_usage", "read_document", "get_evidence"}
             result = await client.call_tool("get_evidence", {"document_id": doc_id, "block_ids": ["b1"]})
             assert "12/ABC" in str(result)
     asyncio.run(run())

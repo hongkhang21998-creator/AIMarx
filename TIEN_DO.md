@@ -1,5 +1,13 @@
 # Tiến độ từng ngày
 
+## 15/09/2026 — façade local, credential và provider gateway
+
+- Đã nối một façade dùng chung cho UI, API và MCP; local chat chỉ gọi Ollama loopback và không fallback cloud.
+- Credential dùng kho bí mật hệ điều hành; SQLite chỉ lưu metadata/fingerprint. UI có thêm/thay/test/bật-tắt/thu hồi; MCP không có tham số key.
+- DeepSeek/OpenAI dùng adapter allowlist, timeout, hạn mức request; luồng cloud UI đi qua snapshot → xác nhận → grant → ledger → adapter → quyết toán.
+- API tối thiểu và năm MCP tool đã có. Regression cuối: 876 passed, 2 skipped; smoke loopback xác nhận năm route chính trả HTTP 200.
+- Checkpoint Qwen2.5-3B step40 đã khớp SHA-256 nhưng chưa đóng gói thành runtime local. Ollama không liệt kê Safetensors adapter Qwen trong nhóm hỗ trợ trực tiếp; chưa được phép coi checkpoint là model đang chạy.
+
 ## Kế hoạch còn lại — A0 đến A7 (14/09/2026)
 
 Xem [kế hoạch hiện hành](KE_HOACH_AI_AGENT.md): A0 kiểm kê → A1 schema → A2 benchmark 3B → A3 gateway/token → A4 MCP/API → A5 kiểm/Word → A6 quản lý việc/phục hồi → A7 nghiệm thu ASUS. A3 mock có thể chuẩn bị sau A1 trong khi chờ benchmark.

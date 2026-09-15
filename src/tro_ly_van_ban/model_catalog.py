@@ -4,7 +4,7 @@ _ALLOWED_INPUT_KEYS = frozenset({"id", "provider", "model", "enabled"})
 # "ollama" là local duy nhất; mọi provider khác là cloud và đi qua policy_gate
 # (mặc định chặn, tối đa chỉ CONSENT_REQUIRED). Chạy Qwen/DeepSeek/GLM trên máy thì
 # khai provider "ollama", không phải tên hãng. Xem docs/NGHIEN_CUU_PROVIDER_2026-09.md.
-_SUPPORTED_PROVIDERS = frozenset({"ollama", "deepseek", "glm", "qwen", "kimi"})
+_SUPPORTED_PROVIDERS = frozenset({"ollama", "deepseek", "openai", "glm", "qwen", "kimi"})
 _ERROR_MESSAGE = "Cấu hình danh mục model không hợp lệ"
 
 

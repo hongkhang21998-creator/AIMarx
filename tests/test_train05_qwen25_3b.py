@@ -16,7 +16,7 @@ def test_config_pins_three_billion_parameter_qlora_trial():
     assert CONFIG["model_id"] == "Qwen/Qwen2.5-3B-Instruct"
     assert CONFIG["model_revision"] == "aa8e72537993ba99e69dfaafa59ed015b17504d1"
     assert CONFIG["max_length"] == 2560
-    assert CONFIG["maximum_steps"] == 5
+    assert CONFIG["maximum_steps"] == 20
     assert CONFIG["micro_batch_size"] == 1
     assert CONFIG["minimum_gpu_memory_gib"] >= 14
     assert (CONFIG["train_count"], CONFIG["validation_count"]) == (80, 20)
@@ -55,6 +55,7 @@ def test_notebook_pins_runner_and_stops_at_human_gate():
     assert "2b17afdd1bc31c5100bb89ccd3d1f9e66dd2e1e0" in source
     assert "--stop-after', '1'" in source
     assert "APPROVE_RESUME_TO_5 = False" in source
+    assert "--stop-after', '5'" in source
     assert source.index("checkpoint-1") < source.index("APPROVE_RESUME_TO_5")
     assert source.index("APPROVE_RESUME_TO_5") < source.index("checkpoint-5")
     assert "checkpoint-20" not in source

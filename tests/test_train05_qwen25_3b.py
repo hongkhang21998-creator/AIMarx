@@ -89,7 +89,7 @@ def test_pilot20_notebook_has_two_gates_and_exact_epoch_limit():
 
 def test_continue40_notebook_has_three_gates_and_exact_step_limit():
     source = "\n".join("".join(cell.get("source", [])) for cell in CONTINUE_NOTEBOOK["cells"])
-    assert "TO_BE_FILLED_AFTER_COMMIT" in source
+    assert "6c9bc1d116ba8383ee86dbbf3f6739a5192237a3" in source
     assert "APPROVE_RESUME_TO_5 = False" in source
     assert "APPROVE_RESUME_TO_20 = False" in source
     assert "APPROVE_RESUME_TO_40 = False" in source

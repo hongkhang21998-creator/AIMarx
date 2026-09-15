@@ -133,3 +133,65 @@ Trên Windows:
 ```
 
 Bộ test dùng dữ liệu tổng hợp: chống trùng, khởi động lại và lịch sử, nguồn bịa, duyệt/lưu phiên bản cũ, model vắng, demo, scan cần OCR, upload CSRF/origin, FastMCP Client thực, dự thảo bị sửa/mất tệp, hash rỗng không được coi là đã xác minh, và chặn `needs_ocr` ở tầng service qua cả bốn cửa ghi. Test model vắng dùng mock mạng; không thay thế thử nghiệm trích xuất model thực.
+1 Kết luận điều hành
+Hai thay đổi hợp nhất gần nhất đã chốt kiến trúc một agent dùng SLM local khoảng 3B và lập kế hoạch A0–A7, nhưng chỉ sửa tài liệu. Runtime mới chưa được triển khai. Bước lập trình đầu tiên còn thiếu là A1a: tạo hợp đồng phân loại và bộ định tuyến quy tắc chạy offline.
+Giao diện thống kê token lấy cảm hứng từ WhereMyTokens đã có trong repository, có route /usage, lưu số liệu Ollama vào SQLite và có test giao diện. Ảnh QA desktop/mobile đã có, nhưng dùng dữ liệu giả lập. Cần cập nhật bản cài trên ASUS và chạy smoke test với Ollama thật trước khi kết luận giao diện đang hoạt động trong môi trường production.
+2 Bảng tiến độ A0 đến A7
+Mã	Nội dung	Việc cần làm	Trạng thái	Điều kiện gần nhất
+A0	Kiểm kê	Đối chiếu service, MCP, policy, snapshot, grant, ledger và artifact TRAIN-05.	Gần hoàn thành	Xác minh backup/hash TRAIN-05 và ghi bảng bằng chứng.
+A1	Phân loại	Schema strict, ba workflow, baseline quy tắc và dữ liệu có nhãn.	Làm ngay	Tạo routing.py và test_routing.py; test offline xanh.
+A2	Benchmark 3B	Chạy model 4-bit trên ASUS; đo chất lượng, RAM, p50/p95.	Chưa làm	Macro-F1 ≥ 0,90; workflow ≥ 90%; JSON ≥ 99%; không OOM.
+A3	Gateway API	Nối một provider với policy, snapshot, grant, ledger và giới hạn token/chi phí.	Một phần	Adapter mock đầu-cuối; timeout, usage và quyết toán được test.
+A4	Vòng soạn	Nối MCP đến gateway và ba workflow cố định; sau A2 mới tự định tuyến bằng SLM.	Chưa làm	Nguồn + mẫu + yêu cầu tạo được dự thảo có source_refs và missing_fields.
+A5	Kiểm và Word	Kiểm schema, số liệu, ngày, tên, nguồn, phiên bản; đóng gói DOCX và duyệt.	Đã có nền	Tái sử dụng kiểm nguồn/DOCX/hash và nối vào kết quả API.
+A6	Phục hồi	Hàng đợi SQLite, checkpoint, retry an toàn và chống tạo trùng.	Chưa làm	Restart tiếp tục đúng bước; kết quả API không bị gọi lại ngoài ý muốn.
+A7	Nghiệm thu ASUS	Ba ca nghiệp vụ và các lỗi mất mạng, thiếu key, hết ngân sách, nguồn đổi.	Chưa làm	Báo cáo chất lượng, RAM, độ trễ, chi phí và backup/restore đạt.
+
+3 Phân biệt tài liệu và chức năng đã kiểm chứng
+Hạng mục	Tài liệu	Runtime	Bằng chứng và giới hạn
+Kiến trúc một agent khoảng 3B	Có	Chưa	PR #73 chỉ sửa Markdown.
+Kế hoạch A0–A7	Có	Chưa	PR #74 chỉ sửa Markdown.
+Nhập PDF chữ DOCX TXT	Có	Đã có	Runtime Service và parser hiện hữu.
+MCP đọc tài liệu	Có	Đã có	Ba công cụ read-only; chưa có yêu cầu soạn.
+Policy snapshot grant ledger	Có	Đã có	Module và test riêng; chưa nối adapter cloud.
+Gateway gọi LLM cloud	Có thiết kế	Chưa	Không tìm thấy adapter gửi request provider trong runtime.
+Phân loại theo schema A1	Có đặc tả	Chưa	Runtime chưa có document_type, workflow_id, missing_fields.
+Kiểm nguồn DOCX duyệt hash	Có	Đã có	Đã nối trong Service hiện tại.
+
+4 Kiểm tra giao diện WhereMyTokens
+Nội dung kiểm tra	Kết quả	Nhận định
+Mã giao diện	Đã có	src/tro_ly_van_ban/token_dashboard.py
+Đường dẫn sử dụng	Đã có	GET /usage trong web.py và liên kết Thống kê token.
+Nguồn dữ liệu	Đã có	Bảng ollama_usage trong state.sqlite3; không lưu prompt hoặc nội dung tài liệu.
+Số liệu	Đã có	Token vào/ra, số lượt, tốc độ sinh, hoạt động theo ngày và theo model.
+Bộ lọc	Đã có	Hôm nay, 7 ngày, 30 ngày và toàn bộ lịch sử.
+Giao diện	Đã có	Sáng/tối, desktop/mobile, heatmap 84 ngày và 50 lượt gần nhất.
+Nguồn thiết kế	Đã có	Chuyển thể từ WhereMyTokens v1.24.6 theo giấy phép MIT; license đã lưu trong repo.
+Test trong repo	Đã có	tests/test_token_usage.py kiểm lưu, restart, thiếu usage, route, theme và bộ lọc.
+Ảnh QA	Đã có	Bốn ảnh trong docs/qa/token-dashboard; dữ liệu trong ảnh là giả lập.
+Chạy production ASUS	Chưa xác minh production	Cần cập nhật checkout, khởi động lại và chạy một lượt Ollama thật.
+
+5 Nhiệm vụ thực hiện ngay trên ASUS
+Nhiệm vụ A1a Runtime routing contract
+Mục	Yêu cầu
+Phạm vi	Chỉ tạo src/tro_ly_van_ban/routing.py và tests/test_routing.py.
+Đầu ra	JSON strict gồm document_type, operation, workflow_id, source_refs, missing_fields, needs_review.
+Bảo vệ	Khóa enum, cấm trường thừa, chặn workflow ngoài allowlist và xử lý prompt injection như dữ liệu.
+Baseline	Quy tắc offline nhận diện ba workflow chính; ca mơ hồ trả needs_user_choice.
+Không làm	Không tải model 3B, không gọi API, không sửa SQLite, UI hoặc MCP.
+Nghiệm thu	python -m pytest -q tests/test_routing.py; sau đó python -m pytest -q.
+
+6 Việc kiểm tra giao diện token trên ASUS
+1.	Cập nhật checkout AIMarx tới main SHA 9f12633 hoặc phiên bản mới hơn đã được duyệt.
+2.	Sao lưu state.sqlite3 và xác nhận TLVB_DATA trỏ đúng kho vận hành.
+3.	Khởi động AIMarx và Ollama theo script hiện hành; không mở dịch vụ ra mạng LAN.
+4.	Mở http://127.0.0.1:8765/usage và kiểm tra trạng thái rỗng hoặc dữ liệu hiện có.
+5.	Chạy một tài liệu thử bằng Ollama; xác nhận lượt gọi, token vào/ra và model xuất hiện sau khi làm mới.
+6.	Khởi động lại AIMarx; xác nhận số liệu vẫn còn và thao tác demo/chỉnh sửa thủ công không làm tăng token.
+7 Tài liệu đối chiếu trong repository
+•	Commit main: https://github.com/hongkhang21998-creator/AIMarx/commit/9f126337db014d2ed5de396dbfd8b14d742b6e4a
+•	Kế hoạch: KE_HOACH_AI_AGENT.md; tiến độ: TIEN_DO.md; nhật ký: WORKLOG.md.
+•	Token dashboard: src/tro_ly_van_ban/token_dashboard.py; src/tro_ly_van_ban/token_usage.py; src/tro_ly_van_ban/web.py.
+•	Kiểm thử: tests/test_token_usage.py; tài liệu bàn giao: docs/handoffs/OLLAMA-TOKEN-DASHBOARD-2026-09-14.md.
+•	Ảnh QA: docs/qa/token-dashboard; giấy phép: docs/third-party/WhereMyTokens-LIC
+

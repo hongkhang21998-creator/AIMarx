@@ -1,5 +1,17 @@
 # Nhật ký phối hợp
 
+## 2026-09-15 — TRAIN-07 Qwen2.5-3B hoàn tất tiếp tục đến step 40
+
+- Tái lập step 1 → 5 → 20 rồi resume thêm một effective epoch đến step 40 trên
+  Tesla T4 miễn phí; không OOM, không Drive/Hub/compute trả phí. Adapter step-40
+  SHA-256 `3e60051c7df52204efbb64b70c94d07bd26eef798fa2b442114589f85d21a14f`.
+- Trên 20 validation/8.803 completion token: base loss `0.521681446602815`,
+  adapter loss `0.291682452109`, chênh `-0.229998994493815`.
+- ZIP 40 entry, 340.473.661 byte, SHA-256
+  `a1969af090e82d39bc612718822f88227935284902075ff39380d4d4d3f5a5fb`;
+  Colab đã kích hoạt tải, chưa xác nhận backup local bền vững.
+- Đây vẫn là pilot kỹ thuật; chưa thay A/B kín độc lập N≥120 hoặc human approval.
+
 ## 2026-09-15 — TRAIN-06 Qwen2.5-3B hoàn tất pilot step 20
 
 - Chạy notebook TRAIN-06 trên Tesla T4 miễn phí qua cổng step 1 → 5 → 20;

@@ -11,6 +11,11 @@ Mốc nhận việc: main `85d7e97`. **Đã có MVP xử lý văn bản, bộ 12
 
 Xem [đối soát Word và bằng chứng](docs/DOI_SOAT_DONG_CHI_MARK_2026-09-14.md), [tiến độ](TIEN_DO.md) và [kế hoạch tiếp theo](KE_HOACH_AI_AGENT.md). Thông tin “chưa train/0 approved” trong ghi chép cũ là trạng thái lịch sử.
 
+Hợp đồng dự kiến cho tám agent dùng chung adapter, ranh giới localhost–GPU và
+điều kiện một kết quả được đưa vào dữ liệu học nằm tại
+[`docs/AGENT_TRAINING_WORKFLOW.md`](docs/AGENT_TRAINING_WORKFLOW.md). Đây là
+nguyên tắc có pytest khóa lại, chưa phải endpoint Colab đang hoạt động.
+
 **AIMarx** là tên chính thức của trợ lý văn bản local này, đặt theo Karl Marx; định hướng lấy cảm hứng từ Marx và Rosa Luxemburg — xem [định hướng AIMarx](docs/AIMARX_DINH_HUONG.md). Repo GitHub đã đổi tên thành [`hongkhang21998-creator/AIMarx`](https://github.com/hongkhang21998-creator/AIMarx); tên cũ `tro-ly-van-ban` được GitHub tự chuyển hướng. Tên gói Python (`tro_ly_van_ban`) và lệnh CLI giữ nguyên để không làm hỏng cài đặt đang có.
 
 

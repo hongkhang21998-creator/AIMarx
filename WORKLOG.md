@@ -10,6 +10,27 @@
 - Không tăng epoch, không dùng smoke-test làm train, không Drive/Hub/compute trả
   phí và chưa coi pilot là nghiệm thu nghiệp vụ.
 
+## 2026-09-14 — kế hoạch hoàn thiện một agent theo nhu cầu cuối
+
+- Phạm vi: KE_HOACH_AI_AGENT.md, TIEN_DO.md, WORKLOG.md; nhánh codex/remaining-single-agent-plan.
+- Chốt A0–A7: phân loại ~3B, một provider giá rẻ, MCP/gateway, token/ngân sách, kiểm tra/Word, việc/phục hồi, nghiệm thu ASUS.
+- Đọc kế hoạch/tiến độ/worklog hiện tại và PR mở #8/#11/#47; giữ lịch sử, yêu cầu đối chiếu module/test thật tại A0 để tránh làm lại.
+- Thêm điều kiện nghiệm thu, xử lý usage thiếu/timeout có thể đã tính phí, nguồn dài, ngưỡng thử ASUS và ước lượng theo buổi có điều kiện.
+- Quyền tự merge/deploy đã có từ anh; phiên này chỉ tài liệu, không gọi API/train/deploy runtime.
+- Kiểm tra: đọc lại nội dung ba file sau ghi; không chạy lại test runtime cho Markdown. Tiếp theo A0 theo kế hoạch.
+
+
+## 2026-09-14 — chốt kiến trúc single-agent khoảng 3B
+
+- Yêu cầu: một agent phân loại local → gọi LLM lớn qua API → kiểm tra và đóng gói, phù hợp máy ASUS hạn chế tài nguyên.
+- Nhánh: codex/single-agent-3b-decision; phạm vi README.md, KE_HOACH_AI_AGENT.md, TIEN_DO.md, docs/SLM_TRAINING_PLAN.md, WORKLOG.md.
+- Thay mục tiêu nhiều Mark/biểu quyết bằng workflow tuần tự của một agent. Phân biệt model ~3B, agent và các bước phần mềm; giữ kiểm nguồn/phiên bản/quyền/ngân sách.
+- Ghi nhận TRAIN-05 step 5 và TRAIN-04 A/B từ nhật ký dưới đây; không ghi là đã benchmark ASUS hoặc nghiệm thu nghiệp vụ.
+- Đồng bộ phân công phát triển Astra/Sol/Luna/Gemini; không giao mới cho Claude. Không khởi chạy tác nhân phát triển khác.
+- Kiểm tra: đọc tài liệu hiện có, đối chiếu các mục mới và giữ nguyên phần lịch sử. Chỉ sửa Markdown; không chạy lại test ứng dụng, training hoặc API.
+- Tiếp theo: xác minh backup TRAIN-05, chốt schema và benchmark phân loại khoảng 3B; chưa triển khai trong phiên này.
+- Bàn giao qua PR để anh merge theo quy trình repo.
+
 ## 2026-09-14 — TRAIN-05 Qwen2.5-3B chạy thành công đến step 5
 
 - PR #71 đã xanh 4/4 và được merge theo phê duyệt trực tiếp tại

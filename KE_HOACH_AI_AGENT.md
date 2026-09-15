@@ -1,5 +1,104 @@
 # Kế hoạch trợ lý xử lý văn bản: AI agent + SLM + MCP
 
+## Kế hoạch thực hiện còn lại — 14/09/2026 (ưu tiên hiện hành)
+
+### Đích nghiệm thu
+
+Một agent AIMarx dùng SLM local khoảng 3B để phân loại văn bản và yêu cầu, nhận diện việc cần làm/thông tin thiếu; backend chọn luồng cố định và gọi LLM giá rẻ qua gateway; chương trình kiểm tra, xuất Word, lưu tiến độ và trình anh duyệt. Một worker tuần tự. Không xây swarm hoặc hội đồng biểu quyết.
+
+Ba luồng đầu: soạn báo cáo từ công văn và số liệu; soạn công văn từ yêu cầu; viết lại/tổng hợp từ nguồn. Văn bản đầu vào phân loại riêng theo loại văn bản (công văn, báo cáo, kế hoạch, thông báo, giấy mời, khác) và thao tác cần làm (soạn, viết lại, tổng hợp, chỉ lưu/theo dõi). Thiếu dữ liệu → chờ bổ sung; ngoài phạm vi/không chắc → chờ người dùng chọn. Nhãn nghiệp vụ do SLM đề xuất không được thay nhãn quyền gửi dữ liệu.
+
+### Thành phần và ranh giới
+
+| Thành phần | Trách nhiệm |
+|---|---|
+| Agent + SLM local ~3B | Phân loại, đề xuất workflow_id và thông tin thiếu, tham chiếu nguồn; JSON ngắn |
+| LLM qua API | Soạn/viết lại/tổng hợp theo brief, mẫu và nguồn được phép |
+| MCP server | Công cụ đọc hồ sơ, lấy mẫu, tra việc, yêu cầu soạn; trả trạng thái có cấu trúc |
+| Gateway phía sau MCP | Giữ khóa ngoài prompt/log, kiểm payload/quyền, trần token, ngân sách, timeout, retry, ghi usage |
+| Chương trình + SQLite | Hàng đợi, trạng thái, hạn/người phụ trách, nguồn/phiên bản, kiểm tra, DOCX và duyệt |
+
+MCP không mặc nhiên đếm hoặc giới hạn token. Mọi đường gọi LLM cloud phải qua cùng gateway, kể cả gọi sửa hoặc kiểm tra bổ sung. Backend ánh xạ workflow_id sang provider/model trong allowlist; model không chọn URL, key, quyền hoặc ngân sách.
+
+### Cơ sở tái sử dụng
+
+Đã có MVP nhập PDF chữ/DOCX/TXT, lưu nguồn/phiên bản, MCP đọc, kiểm nguồn, DOCX và duyệt theo hash. Nhật ký/PR đã ghi các gói policy, snapshot, grant, ledger và dữ liệu/train; phải kiểm module/test và điểm nối ở main trước sửa. Không suy rằng module đã merge nghĩa là luồng API đã chạy. TRAIN-05 3B step 5 chứng minh pipeline thử nghiệm; chưa phải nghiệm thu phân loại hay chạy ASUS.
+
+### Các gói thực hiện theo thứ tự
+
+| Mã | Công việc và phụ thuộc | Điều kiện hoàn thành |
+|---|---|---|
+| A0 | Kiểm kê main và PR mở; lập bảng module đã có/còn thiếu cho service, MCP, snapshot, grant, ledger, adapter; xác minh backup TRAIN-05 nếu còn truy cập | Ghi base SHA, đường dẫn thật, test/bằng chứng và phạm vi file mỗi gói; không viết lại thành phần đã đạt. PR #8/#11/#47 cũ phải đối chiếu trước tích hợp, không để ghi đè quyết định mới |
+| A1 | Sau A0: schema phân loại, ba workflow, bộ dữ liệu có nhãn và baseline quy tắc | JSON gồm document_type, operation, workflow_id, source_refs, missing_fields, needs_review; khóa enum, ca nhiều yêu cầu/không rõ/ngoài phạm vi và injection. Bộ phát triển tách bộ nghiệm thu độc lập N≥120; dữ liệu 120 mẫu cũ chỉ tái dùng khi nhãn/quyền/split phù hợp |
+| A2 | Sau A1: benchmark SLM ~3B 4-bit trên ASUS | Đo macro-F1, đúng workflow, JSON hợp lệ, từng lớp và lỗi cần hỏi; so baseline quy tắc. Mục tiêu pilot: macro-F1 ≥0,90, đúng workflow ≥90%, JSON hợp lệ ≥99%; backend chặn mọi enum/tool ngoài allowlist trong bộ kiểm thử. Không coi model tự báo confidence là xác suất đã hiệu chỉnh |
+| A3 | Sau A0/A1: nối gateway và một provider, thử mock trước | Mọi lời gọi qua gateway; tính dự trù trước gửi, đặt max output, ghi usage/cost thực, trần job/ngày/tháng, timeout và xử lý lỗi có test. Chọn model rẻ nhất trong ứng viên đạt bộ thử soạn; kiểm API/giá hiện hành khi triển khai |
+| A4 | Sau A1/A3: nối MCP và một vòng soạn cố định; sau A2 mới bật SLM tự định tuyến | Yêu cầu + mẫu + phần nguồn cần thiết → API → kết quả có source_refs/missing_fields. Có thể kiểm vòng API bằng lựa chọn workflow thủ công trước khi SLM đạt. Không gửi cả kho hoặc âm thầm cắt phần quan trọng |
+| A5 | Sau A4: nối kiểm tra và đóng gói | Kiểm schema, số liệu/ngày/tên có căn cứ, nguồn mâu thuẫn, trường thiếu, phiên bản/hash. Xuất DOCX và phiếu việc bằng mẫu đã xác nhận; bản nháp được gắn nhãn, thiếu số liệu để chỗ trống; anh xem/sửa/duyệt đúng phiên bản |
+| A6 | Sau A5: hoàn thiện quản lý việc và phục hồi | Một worker; việc có tiêu đề, nguồn, trạng thái, hạn và người phụ trách khi có căn cứ/xác nhận. Hàng đợi và checkpoint trên SQLite; restart/retry không tạo trùng, không tự gọi lại API có kết quả chưa rõ |
+| A7 | Sau A2–A6: nghiệm thu và triển khai ASUS | Chạy ba workflow trên bộ nghiệp vụ đã duyệt; công bố lỗi, thời gian sửa, RAM, p50/p95 và chi phí/kết quả đạt. Test mất mạng, thiếu key, hết ngân sách, provider lỗi, nguồn thay đổi, restart, DOCX bị sửa; backup/restore vào kho thử đạt rồi mới cập nhật bản dùng |
+
+A2 và phần mock A3 độc lập về phụ thuộc nhưng vẫn có thể làm tuần tự; kế hoạch này không tự khởi chạy nhiều tác nhân phát triển.
+
+### Hợp đồng token và chi phí cho A3
+
+- Cấu hình một provider/model mặc định đạt chất lượng, bảng giá có ngày/phiên bản; không tự nâng model đắt hoặc đổi provider khi lỗi.
+- Đầu vào gồm brief, mẫu và các đoạn được chọn có ID/hash; dự trù toàn bộ prompt, không chỉ chữ người dùng. Đầu ra có trần token theo loại tác vụ.
+- Trước gửi: kiểm quyền/snapshot và giữ chỗ ngân sách trong transaction. Sau gửi: đối soát input/output/cached/reasoning token nếu provider cung cấp; lưu request_id, model, attempt, trạng thái và chi phí. Usage thiếu không ghi 0: đánh dấu chưa đối soát, giữ dự trù bảo thủ.
+- Tổng ngân sách job bao gồm lần sửa, kiểm tra và retry. Mặc định tối đa hai lần gọi sinh/job tính cả retry; giảm theo quyền hiện có, không tự tăng. Lỗi quyền/payload/ngân sách không retry. Timeout sau gửi có thể đã bị tính phí: đánh dấu kết quả chưa rõ, dùng idempotency/tra cứu nếu provider hỗ trợ trước khi gửi lại.
+- Chưa chốt mức tiền hoặc nhà cung cấp trả phí trong kế hoạch. Chạy mock và kiểm cấu hình trước; lời gọi thật dùng key, hạn mức và quyền dữ liệu đã cấp đúng phạm vi. Nếu thiếu thì báo đúng mục thiếu, không hỏi lại quyền đã có.
+- Đo tổng chi phí một sản phẩm đạt và thời gian anh sửa; không chỉ tối ưu giá mỗi token. Cache chỉ dùng lại khi nguồn, brief, mẫu và phiên bản cấu hình khớp; vẫn kiểm quyền hiện tại.
+
+### Giới hạn tài nguyên và dữ liệu dài
+
+ASUS Ubuntu 8 GB: một model resident, một yêu cầu mỗi lần; khởi đầu context 2.048 token cho phân loại, output tối đa 256 token. Đây là cấu hình thử, không dùng để cắt mẫu train cần context 2.560. Tài liệu dài phải chọn/chia đoạn có dấu vết, giữ thông tin nhiệm vụ/hạn ở các phần sau; không mặc định chỉ đọc trang đầu.
+
+Ngưỡng vận hành pilot đề xuất: còn MemAvailable ≥1 GiB sau nạp và trong bộ thử, không OOM hoặc swap liên tục; p95 phân loại ≤30 giây trên tập đầu vào đã định cỡ. Đo và ghi ngưỡng trước nghiệm thu; nếu không đạt thì tối ưu context/threads/đầu vào, báo kết quả và cân nhắc model nhỏ hơn. Mục tiêu vẫn khoảng 3B, chất lượng và khả năng sử dụng quyết định triển khai.
+
+### Trạng thái và nghiệm thu đầu-cuối
+
+Trạng thái đích: queued → classifying → needs_input hoặc ready → generating → validating → awaiting_review → approved/rejected; lỗi có failed hoặc reconciliation_required. Backend giữ quyền chuyển trạng thái. Sửa brief/nguồn tạo phiên bản mới, vô hiệu kết quả cũ đang chờ; sự kiện dùng UTC, hiển thị giờ Việt Nam. Không suy hạn tương đối hoặc trạng thái hoàn thành từ lời model.
+
+Nghiệm thu ba tình huống: (1) công văn yêu cầu báo cáo có đủ số liệu; (2) yêu cầu thiếu số liệu phải chờ bổ sung; (3) tổng hợp nhiều nguồn có mâu thuẫn phải đánh dấu để kiểm. Sản phẩm đạt phải mở được Word, đối chiếu được nguồn, thấy việc/trạng thái và token/chi phí; không tự phát hành hoặc gửi lịch.
+
+### Thời gian và cách theo dõi
+
+Ước lượng lập kế hoạch: A0–A1 1–2 buổi; A2 1–2; A3 2–3; A4 1–2; A5 1–2; A6 2–3; A7 2–3. Tổng 10–17 buổi thực hiện có môi trường sẵn, mỗi buổi khoảng 2–4 giờ, có thể thay đổi sau A0. Đây không phải tốc độ đã đo hay cam kết ngày hoàn thành. Mốc 2–4 tuần trước đó là mục tiêu có điều kiện, không lịch tự chạy; thiếu kết nối ASUS/key/dữ liệu nghiệm thu sẽ làm trễ.
+
+Theo dõi từng gói bằng chưa làm/đang làm/chờ bằng chứng/đạt, kèm commit, test, số đo và lỗi còn lại. Con số 40% trước đây chỉ là ước lượng sơ bộ; không dùng số PR, số test hoặc loss để tính phần trăm hoàn thành sản phẩm.
+
+### Phân công và quyền thực hiện
+
+Astra: hợp đồng và nghiệm thu; Sol: gateway/workflow/lưu trạng thái; Luna: bộ đánh giá và số đo; Gemini: tiện ích nhỏ hoặc fixture theo phạm vi rõ. Đây là vai trò công cụ phát triển, runtime chỉ một agent. Không giao mới cho Claude.
+
+Anh đã cấp quyền tự merge/deploy trong cuộc trò chuyện; không cần hỏi lại cho thay đổi thuộc phạm vi được giao sau kiểm tra phù hợp. Quyền này không thay quyền dữ liệu/API và không tạo kết nối máy ASUS. Deploy local cần truy cập máy, backup, smoke và đường rollback. Phiên lập kế hoạch này chỉ cập nhật tài liệu; không triển khai A0–A7 hoặc chạy training.
+
+Fine-tune bổ sung chỉ mở sau khi phân loại baseline không đạt và có phân tích lỗi/dữ liệu phù hợp. OCR scan, nhiều provider, RAG lớn, đa người dùng, lịch tự gửi và làm lại UI nằm ngoài bản đầu.
+
+
+## Quyết định mới nhất 14/09/2026 — một agent, SLM khoảng 3B + API
+
+Theo quyết định của anh Khang: **AIMarx có đúng một agent điều phối, dùng một SLM local khoảng 3 tỷ tham số; chức năng chính là phân loại và chọn luồng cố định. LLM lớn xử lý văn bản qua API; chương trình kiểm tra và đóng gói để anh duyệt.** Số tham số thuộc model, không phải toàn bộ agent.
+
+Luồng đích: nhập/đọc nguồn → SLM phân loại → backend kiểm quyền và chọn API đã cấu hình → LLM xử lý văn bản → kiểm kết quả → đóng gói DOCX/phiếu và trình duyệt.
+
+- Một worker xử lý tuần tự; API là dịch vụ được gọi, không phải agent tự trị. Không xây swarm, Big Mark cùng các agent Văn/Kiểm/Gói/Tìm/Tri/Huấn, mailbox liên-agent hoặc hội đồng bỏ phiếu.
+- Kiểm tra và đóng gói là các bước phần mềm trong cùng workflow. Quy tắc kiểm schema, nguồn, trường bắt buộc, phiên bản và hash là hàng rào chính; SLM chỉ bổ sung nhận xét. Kiểm nguồn chữ không chứng minh đúng ngữ nghĩa; ca khó cần người duyệt hoặc lời gọi API kiểm tra có giới hạn.
+- Backend giữ trạng thái SQLite, checkpoint nghiệp vụ, quyền dữ liệu, ngân sách, timeout và retry có giới hạn. SLM không tự cấp quyền hoặc mở agent mới. Lỗi API phải giữ tác vụ để tiếp tục, không báo hoàn thành giả.
+- Quyết định kiến trúc cho phép thiết kế đường API, không tự gửi hồ sơ thật hoặc phát sinh chi phí. Tái sử dụng hợp đồng PSC-01 và quyền đã cấp đúng phạm vi; duyệt sản phẩm cuối vẫn tách khỏi quyền gửi dữ liệu.
+- Mục tiêu local khoảng 3B, ưu tiên lượng tử hóa 4-bit và context ngắn đủ phân loại; chưa cam kết hiệu năng ASUS trước benchmark RAM đỉnh, p50/p95 và chất lượng. Máy local chạy suy luận; không đặt yêu cầu train 3B trên máy yếu.
+
+Mục này thay các chỉ đạo kiến trúc swarm/biểu quyết và giới hạn chỉ 0.6B trong ghi chép cũ bên dưới. Các mục có ngày trước quyết định này được giữ để truy vết, không phải backlog bắt buộc. Đây là quyết định thiết kế; chưa tuyên bố runtime API/3B đã triển khai.
+
+### Thứ tự triển khai thay thế
+
+1. Khép lưu trữ và đánh giá artifact TRAIN-05 hiện có; kiểm bản sao/hash trước khi runtime Colab mất. Không tăng step chỉ vì đổi kiến trúc.
+2. Chốt schema phân loại: loại yêu cầu, workflow_id, thông tin thiếu, tham chiếu nguồn; backend ánh xạ workflow sang model/API trong allowlist. Có nhánh không chắc chắn và ngoài phạm vi.
+3. Benchmark model khoảng 3B lượng tử hóa trên ASUS với baseline định tuyến bằng quy tắc; đo chất lượng, RAM và thời gian trước tích hợp.
+4. Hoàn thiện một đường API đầu-cuối trên dữ liệu thử được phép, tái sử dụng gate/snapshot/ledger/adapter đã có sau khi kiểm mã; không viết lại các lớp này chỉ vì bỏ swarm.
+5. Nối kiểm tra–đóng gói–duyệt và phục hồi. Nghiệm thu mất mạng, restart giữa bước, retry không trùng, nguồn sai, sửa sau duyệt, đề xuất ngoài allowlist và vượt ngân sách.
+
+Phân công phát triển dùng Astra, Sol, Luna, Gemini theo chỉ đạo 12/09; Claude không còn trong kế hoạch giao việc mới. Đây là công cụ xây dựng dự án, không phải bốn agent trong runtime AIMarx. Mỗi gói giữ phạm vi file riêng và PR để anh merge.
+
 ## Kế hoạch cập nhật 14/09/2026 — đối soát Đồng chí Mark
 
 Hiện có nền văn bản, dữ liệu được duyệt và smoke Colab; chưa có hệ thống Mark. [Bảng đối soát Word](docs/DOI_SOAT_DONG_CHI_MARK_2026-09-14.md) là danh sách khoảng thiếu và câu hỏi hợp đồng; yêu cầu trong Word chưa tự trở thành chức năng đã triển khai.

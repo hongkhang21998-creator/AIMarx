@@ -10,6 +10,16 @@
   cấp riêng cả quyền train lẫn quyền export. Chưa mở tunnel/gọi Colab hoặc thay
   runtime MVP; PR API kế tiếp phải đi qua PSC-01 và dùng dữ liệu synthetic trước.
 
+## 2026-09-15 — chuẩn bị Qwen2.5-3B pilot một effective epoch
+
+- Người dùng cấp quyền khẩn cấp tự merge và tiếp tục train. Phiên Colab cũ đã
+  đóng; checkpoint-5 chỉ có hash/báo cáo, chưa có bản sao local để resume.
+- Nâng trần runner từ 5 lên 20 optimizer step, tương ứng 80 mẫu với gradient
+  accumulation 4 và microbatch 1. TRAIN-05 được khóa thêm `--stop-after 5` để
+  không đổi hành vi; TRAIN-06 sẽ tái lập step 1 → 5 → 20 với hai cổng riêng.
+- Không tăng epoch, không dùng smoke-test làm train, không Drive/Hub/compute trả
+  phí và chưa coi pilot là nghiệm thu nghiệp vụ.
+
 ## 2026-09-14 — kế hoạch hoàn thiện một agent theo nhu cầu cuối
 
 - Phạm vi: KE_HOACH_AI_AGENT.md, TIEN_DO.md, WORKLOG.md; nhánh codex/remaining-single-agent-plan.

@@ -4,6 +4,7 @@ import httpx
 from .domain import Extraction
 from .header import extract_header
 from .token_usage import measured_call
+from .local_config import MAX_LOCAL_CONTEXT, checked_context
 
 
 class ModelUnavailable(RuntimeError):
@@ -130,14 +131,15 @@ def ground(item, sources: dict):
     return {"value": value, "block_id": item["block_id"], "quote": _quote_window(src, value)}
 
 
-def chat(messages: list[dict], model: str, schema: dict, num_ctx: int = 8192) -> dict:
+def chat(messages: list[dict], model: str, schema: dict, num_ctx: int = MAX_LOCAL_CONTEXT) -> dict:
     """Gửi messages tới Ollama local với khung sinh cho trước; trả JSON thô của model."""
+    num_ctx = checked_context(num_ctx)
     with measured_call(model) as usage:
         try:
             with httpx.Client(timeout=120, trust_env=False) as client:
                 result = client.post("http://127.0.0.1:11434/api/chat", json={
-                    "model": model, "stream": False, "think": False, "format": schema,
-                    "options": {"temperature": 0, "num_ctx": num_ctx, "num_predict": 2048},
+                    "model": model, "stream": False, "format": schema,
+                    "options": {"temperature": 0, "num_ctx": num_ctx, "num_predict": min(768, num_ctx)},
                     "messages": messages})
                 result.raise_for_status()
         except httpx.HTTPError as exc:
@@ -156,7 +158,8 @@ def chat(messages: list[dict], model: str, schema: dict, num_ctx: int = 8192) ->
         raise ValueError("Model trả dữ liệu sai schema; cần kiểm tra hoặc thử lại") from exc
 
 
-def extract(blocks: list[dict], mode: str, model: str, num_ctx: int = 8192) -> Extraction:
+def extract(blocks: list[dict], mode: str, model: str, num_ctx: int = MAX_LOCAL_CONTEXT) -> Extraction:
+    num_ctx = checked_context(num_ctx)
     if mode == "demo":
         return Extraction(missing=["CHẾ ĐỘ DEMO: không trích xuất nghiệp vụ; bổ sung dữ liệu từ nguồn để thử duyệt."])
     if len(json.dumps(blocks, ensure_ascii=False)) > 5000:

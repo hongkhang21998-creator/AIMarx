@@ -2,6 +2,7 @@
 import os
 from fastmcp import FastMCP
 from .service import Service
+from .local_config import DEFAULT_LOCAL_MODEL
 
 
 def create_mcp(service):
@@ -24,8 +25,16 @@ def create_mcp(service):
         return [blocks[x] for x in block_ids]
 
     @mcp.tool
-    def ask_aimarx(message: str, model_id: str | None = None) -> dict:
-        """Ask an enabled local model. Cloud models require confirmation in the local UI."""
+    def ask_aimarx(message: str, model_id: str | None = None,
+                   agentic: bool = True, document_id: str | None = None) -> dict:
+        """Run a bounded local agent. Select a registered document to authorize reading it.
+
+        Set agentic=false for plain chat. This tool cannot call cloud or approve work.
+        """
+        if agentic:
+            if model_id not in (None, "local-qwen"):
+                raise ValueError("Agent chỉ dùng model local-qwen")
+            return service.aimarx.run_agent(message, document_id)
         return service.aimarx.ask(message, model_id)
 
     @mcp.tool
@@ -42,7 +51,9 @@ def create_mcp(service):
 
 
 def main():
-    create_mcp(Service(os.getenv("TLVB_DATA", "data"), required_mount=os.getenv("TLVB_REQUIRED_MOUNT"))).run(transport="stdio")
+    create_mcp(Service(os.getenv("TLVB_DATA", "data"), os.getenv("TLVB_MODE", "ollama"),
+                       os.getenv("TLVB_MODEL", DEFAULT_LOCAL_MODEL),
+                       os.getenv("TLVB_REQUIRED_MOUNT"))).run(transport="stdio")
 
 
 if __name__ == "__main__":

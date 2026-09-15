@@ -13,10 +13,11 @@ from .token_dashboard import render_dashboard
 from .aimarx import AimarxError
 from .credentials import CredentialError
 from .provider_adapter import ProviderAdapterError
+from .local_config import DEFAULT_LOCAL_MODEL
 
 
 def create_app(service=None):
-    service = service or Service(os.getenv("TLVB_DATA", "data"), os.getenv("TLVB_MODE", "ollama"), os.getenv("TLVB_MODEL", "qwen3:0.6b"), os.getenv("TLVB_REQUIRED_MOUNT"))
+    service = service or Service(os.getenv("TLVB_DATA", "data"), os.getenv("TLVB_MODE", "ollama"), os.getenv("TLVB_MODEL", DEFAULT_LOCAL_MODEL), os.getenv("TLVB_REQUIRED_MOUNT"))
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
     app.state.service = service
     token = secrets.token_urlsafe(32)
@@ -81,6 +82,8 @@ def create_app(service=None):
         return ''.join('<p class="warn"><b>Cảnh báo môi trường:</b> ' + esc(w) + '</p>' for w in getattr(service, "warnings", []))
 
     def page(body, status=200):
+        body = ('<p><a href="/agent"><strong>Mở agent local</strong></a> · Model: ' +
+                esc(service.model) + (' · <strong>Cloud đã khóa</strong>' if service.aimarx.local_only else '') + '</p>' + body)
         return HTMLResponse('<!doctype html><html lang="vi"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>AIMarx — Trợ lý văn bản</title><style>body{font:17px system-ui;max-width:1100px;margin:30px auto;padding:20px;background:#f5f7fa;color:#182b3a}textarea{width:100%;min-height:320px}pre{white-space:pre-wrap}button,input,select{padding:9px;margin:5px}article{background:white;padding:20px;margin:15px 0;border:1px solid #ccd}a{color:#075e8f}.warn{background:#fff3cd;border:1px solid #e0b000;padding:12px;margin:12px 0}</style><a href="/">Kho tài liệu</a> · <a href="/chat">Hỏi AIMarx</a> · <a href="/tasks">Sổ công việc</a> · <a href="/usage">Thống kê token</a> · <a href="/providers">Provider</a><h1>AIMarx</h1><p>Trợ lý văn bản chạy trên máy của bạn: mọi dữ kiện có nguồn, mọi quyết định do bạn duyệt.</p><p>Chế độ: <strong>' + esc(service.mode) + '</strong>. Phiếu thử nghiệm; chưa phải mẫu văn bản hành chính được xác nhận.</p>' + warn_banner() + body + '</html>', status_code=status)
 
     @app.exception_handler(ValueError)
@@ -122,6 +125,8 @@ def create_app(service=None):
 
     @app.post("/v1/chat")
     async def api_chat(request: Request):
+        if request.headers.get("content-type", "").split(";")[0].strip().lower() != "application/json":
+            return JSONResponse({"error": "Cần Content-Type application/json"}, 415)
         try:
             body = await request.json()
         except Exception:
@@ -130,9 +135,60 @@ def create_app(service=None):
             raise ValueError("Yêu cầu chat không hợp lệ")
         return await run_in_threadpool(service.aimarx.ask, body.get("message"), body.get("model_id"))
 
+    @app.post("/v1/agent")
+    async def api_agent(request: Request):
+        if request.headers.get("content-type", "").split(";")[0].strip().lower() != "application/json":
+            return JSONResponse({"error": "Cần Content-Type application/json"}, 415)
+        try:
+            body = await request.json()
+        except Exception:
+            raise ValueError("JSON không hợp lệ") from None
+        if type(body) is not dict or set(body) - {"message", "document_id"}:
+            raise ValueError("Yêu cầu agent không hợp lệ")
+        return await run_in_threadpool(service.aimarx.run_agent, body.get("message"), body.get("document_id"))
+
+    @app.get("/agent", response_class=HTMLResponse)
+    def agent_page():
+        options = '<option value="">Chưa chọn tài liệu</option>'
+        for doc in service.listing():
+            options += '<option value="' + esc(doc["id"]) + '">' + esc(doc["name"]) + '</option>'
+        return page('<h2>Agent cá nhân · local</h2><p>Qwen chọn thao tác phù hợp, ứng dụng thực hiện và trả kết quả.</p>'
+                    '<article><p>Ví dụ: “Liệt kê hồ sơ trong kho”, “Tóm tắt tài liệu được chọn”, '
+                    '“Tôi đã dùng bao nhiêu token?”, “Giải thích quy trình tiếp nhận hồ sơ”.</p>'
+                    f'<form action="/agent" method="post">{hidden}'
+                    '<label for="agent-doc">Tài liệu cho phép đọc</label>'
+                    f'<select id="agent-doc" name="document_id">{options}</select>'
+                    '<p><label for="agent-message">Anh muốn tôi làm gì?</label></p>'
+                    '<textarea id="agent-message" name="message" maxlength="2000" required '
+                    'style="min-height:140px"></textarea><button>Thực hiện local</button></form></article>'
+                    '<p>Mỗi lượt tối đa một công cụ đọc. Việc lập và duyệt phiếu vẫn thực hiện tại Kho tài liệu. '
+                    'Phản hồi có thể mất một vài phút trên CPU.</p>')
+
+    @app.post("/agent", response_class=HTMLResponse)
+    async def agent_submit(request: Request):
+        form = await checked_form(request)
+        result = await run_in_threadpool(service.aimarx.run_agent, required(form, "message"),
+                                         str(form.get("document_id", "")) or None)
+        labels = {"list_documents": "Xem danh sách tài liệu", "read_document": "Đọc tài liệu được chọn",
+                  "get_usage": "Xem mức sử dụng", "list_models": "Xem danh sách model"}
+        steps = ''.join('<li>' + esc(labels[step["tool"]]) + ' — đã thực hiện</li>' for step in result["steps"])
+        body = '<h2>Kết quả agent</h2><p>' + esc(result["model"]) + ' · ' + esc(result["elapsed_seconds"]) + ' giây</p>'
+        body += ('<h3>Thao tác đã thực hiện</h3><ul>' + steps + '</ul>') if steps else '<p>Lượt này chưa thực hiện công cụ.</p>'
+        if result.get("truncated"):
+            body += '<p class="warn">Chỉ đọc phần đầu tài liệu trong giới hạn context. Kết quả chưa bao quát toàn bộ tài liệu.</p>'
+        body += '<article><pre>' + esc(result["content"]) + '</pre></article>'
+        if result["evidence"]:
+            body += '<details><summary>Các đoạn nguồn đã đọc — đối chiếu câu trả lời tại đây</summary>'
+            for block in result["evidence"]:
+                body += '<p><b>' + esc(block["id"]) + '</b></p><pre>' + esc(block["text"]) + '</pre>'
+            body += '</details>'
+        return page(body + '<p><a href="/agent">Yêu cầu tiếp theo</a></p>')
+
     @app.get("/providers", response_class=HTMLResponse)
     def providers_page():
         body = '<h2>Provider và API key</h2><p>Key được lưu trong kho bí mật của hệ điều hành. SQLite chỉ giữ fingerprint.</p>'
+        if service.aimarx.local_only:
+            body += '<p class="warn">Runtime đang khóa cloud. Bật provider tại đây không mở quyền gọi mạng; kiểm tra key cũng bị chặn.</p>'
         for provider in service.aimarx.credentials.list_public():
             body += '<article><b>' + esc(provider["id"]) + '</b> — ' + esc(provider["model"])
             body += '<p>Trạng thái: ' + ("bật" if provider["enabled"] else "tắt") + '; credential: ' + esc(provider["key_fingerprint"] or "chưa có") + '</p>'
@@ -149,7 +205,7 @@ def create_app(service=None):
     def chat_page():
         body = f'<h2>Hỏi AIMarx local</h2><p>Yêu cầu này chỉ gửi tới Ollama trên máy.</p><form action="/chat" method="post">{hidden}<textarea name="message" required></textarea><button>Gửi tới SLM local</button></form>'
         cloud = [row for row in service.aimarx.credentials.list_public()
-                 if row["provider"] != "ollama" and row["enabled"]]
+                 if row["provider"] != "ollama" and row["enabled"] and not service.aimarx.local_only]
         if cloud:
             options = ''.join('<option value="' + esc(row["id"]) + '">' +
                               esc(row["id"] + " · " + row["model"]) + '</option>' for row in cloud)

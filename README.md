@@ -1,5 +1,13 @@
 # AIMarx
 
+## Triển khai local 15/09/2026 — Qwen Q3, context tối đa 2048
+
+Bản ASUS dùng **Qwen2.5 3B Instruct Q3_K_M**, một agent local có công cụ đọc, UI/API/MCP chung backend. `num_ctx` bị khóa tối đa **2048** trong cả chat và trích xuất; cấu hình triển khai khóa cloud. Đây là model gốc, chưa nạp adapter step40.
+
+- Mở **AIMarx Local** trong menu ứng dụng, hoặc chạy `bash scripts/asus-local-agent.sh start` trên ASUS; giao diện tại <http://127.0.0.1:8765/agent>.
+- Hướng dẫn vận hành, phạm vi công cụ và bằng chứng: [bàn giao Qwen local](docs/handoffs/QWEN-LOCAL-2026-09-15.md).
+- Cấu hình Q3 và context 2048 ở mục này thay ưu tiên 4-bit trong quyết định ngày 14/09 bên dưới.
+
 ## Quyết định mới nhất 14/09/2026 — một agent, SLM khoảng 3B + API
 
 Theo quyết định của anh Khang: **AIMarx có đúng một agent điều phối, dùng một SLM local khoảng 3 tỷ tham số; chức năng chính là phân loại và chọn luồng cố định. LLM lớn xử lý văn bản qua API; chương trình kiểm tra và đóng gói để anh duyệt.** Số tham số thuộc model, không phải toàn bộ agent.

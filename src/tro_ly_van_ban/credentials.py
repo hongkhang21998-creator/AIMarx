@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import re
 from dataclasses import dataclass
+from .local_config import DEFAULT_LOCAL_MODEL
 
 
 _ID = re.compile(r"[a-z][a-z0-9_-]{0,63}")
@@ -27,7 +28,7 @@ class ProviderDefinition:
 
 
 DEFAULT_PROVIDERS = (
-    ProviderDefinition("local-qwen", "ollama", "qwen3:0.6b", "http://127.0.0.1:11434", True, 60, 120),
+    ProviderDefinition("local-qwen", "ollama", DEFAULT_LOCAL_MODEL, "http://127.0.0.1:11434", True, 60, 120),
     ProviderDefinition("deepseek-chat", "deepseek", "deepseek-chat", "https://api.deepseek.com", False, 10, 45),
     ProviderDefinition("openai-mini", "openai", "gpt-5-mini", "https://api.openai.com", False, 10, 45),
 )

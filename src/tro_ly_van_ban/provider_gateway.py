@@ -24,6 +24,7 @@ class ProviderGateway:
         self.clock = clock or (lambda: int(time.time() * 1000))
 
     def _config(self, provider_id: str, now_ms: int) -> TrustedConfig:
+        self.adapter.require_cloud()
         selected = self.credentials.get_public(provider_id)
         if selected["provider"] == "ollama" or not selected["enabled"]:
             raise SnapshotError("POLICY_DENIED", "PROVIDER_DISABLED")

@@ -15,6 +15,7 @@ from .model import extract, ModelUnavailable
 from .parser import parse, MAX_BYTES
 from .storage_guard import check_data_root
 from .token_usage import TokenUsage, capture_usage
+from .local_config import DEFAULT_LOCAL_MODEL
 
 
 class NotFound(ValueError):
@@ -65,7 +66,7 @@ graph = builder.compile()
 
 
 class Service:
-    def __init__(self, root: str | Path, mode="ollama", model="qwen3:0.6b", required_mount=None):
+    def __init__(self, root: str | Path, mode="ollama", model=DEFAULT_LOCAL_MODEL, required_mount=None):
         if mode not in {"ollama", "demo"}:
             raise ValueError("TLVB_MODE must be ollama or demo")
         # Phai kiem truoc mkdir: o vang mat thi mkdir(parents=True) se dung kho rong tren tmpfs.
